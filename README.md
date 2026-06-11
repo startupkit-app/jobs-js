@@ -1,4 +1,4 @@
-# @startupkit/jobs
+# @startupkit-app/jobs
 
 Typed, zero-dependency JavaScript/TypeScript client for [Kit's](https://startupkit.app) public hiring API. List your published jobs and accept applications from your own careers site — Node, browsers, edge runtimes, any framework.
 
@@ -10,7 +10,7 @@ Typed, zero-dependency JavaScript/TypeScript client for [Kit's](https://startupk
 ## Install
 
 ```sh
-npm install @startupkit/jobs
+npm install @startupkit-app/jobs
 ```
 
 ## Keys
@@ -27,7 +27,7 @@ Pass exactly one to `createClient`. The SDK throws if you pass both, and throws 
 ## Quickstart (server-side, `sk_…`)
 
 ```ts
-import { createClient } from "@startupkit/jobs";
+import { createClient } from "@startupkit-app/jobs";
 
 const kit = createClient({ secretKey: process.env.KIT_SECRET_KEY });
 
@@ -59,7 +59,7 @@ with `application_form.turnstile.sitekey` and pass the resulting token
 through to `apply`:
 
 ```ts
-import { createClient } from "@startupkit/jobs";
+import { createClient } from "@startupkit-app/jobs";
 
 const kit = createClient({ publishableKey: "pk_live_…" });
 
@@ -111,7 +111,7 @@ Non-2xx API responses throw `KitApiError`; failures that never reach the
 API (network, DNS, the direct-upload `PUT`) throw `KitNetworkError`.
 
 ```ts
-import { KitApiError, KitNetworkError } from "@startupkit/jobs";
+import { KitApiError, KitNetworkError } from "@startupkit-app/jobs";
 
 try {
   await kit.apply(job.id, { email });

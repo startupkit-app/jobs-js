@@ -139,20 +139,20 @@ export function createClient(options: ClientOptions): KitJobsClient {
 
   if (publishableKey && secretKey) {
     throw new Error(
-      "@startupkit/jobs: pass either publishableKey or secretKey, not both."
+      "@startupkit-app/jobs: pass either publishableKey or secretKey, not both."
     );
   }
 
   const apiKey = secretKey ?? publishableKey;
   if (!apiKey) {
     throw new Error(
-      "@startupkit/jobs: either publishableKey (pk_…) or secretKey (sk_…) is required."
+      "@startupkit-app/jobs: either publishableKey (pk_…) or secretKey (sk_…) is required."
     );
   }
 
   if (secretKey && isBrowser()) {
     throw new Error(
-      "@startupkit/jobs: secretKey (sk_…) must never be used in a browser — it would be exposed to every visitor. Use a publishableKey (pk_…) in browser code and keep the secret key on your server."
+      "@startupkit-app/jobs: secretKey (sk_…) must never be used in a browser — it would be exposed to every visitor. Use a publishableKey (pk_…) in browser code and keep the secret key on your server."
     );
   }
 

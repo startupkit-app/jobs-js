@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Apply — @startupkit/jobs browser example</title>
+  <title>Apply — @startupkit-app/jobs browser example</title>
   <!-- Cloudflare Turnstile (only needed when the job requires it) -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
@@ -31,8 +31,8 @@
   </form>
 
   <script type="module">
-    // In your app: import { createClient } from "@startupkit/jobs";
-    import { createClient, KitApiError } from "https://esm.sh/@startupkit/jobs@0.1.0";
+    // In your app: import { createClient } from "@startupkit-app/jobs";
+    import { createClient, KitApiError } from "https://esm.sh/@startupkit-app/jobs@0.1.0";
 
     const PUBLISHABLE_KEY = "pk_live_REPLACE_ME"; // pk_ keys are browser-safe
     const JOB_TOKEN = new URLSearchParams(location.search).get("job") ?? "REPLACE_ME";

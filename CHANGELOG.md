@@ -1,4 +1,4 @@
-# @startupkit/jobs
+# @startupkit-app/jobs
 
 ## 0.1.0
 

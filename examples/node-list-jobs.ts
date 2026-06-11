@@ -2,7 +2,7 @@
 //
 //   KIT_SECRET_KEY=sk_… npx tsx examples/node-list-jobs.ts
 
-import { createClient } from "@startupkit/jobs";
+import { createClient } from "@startupkit-app/jobs";
 
 const secretKey = process.env.KIT_SECRET_KEY;
 if (!secretKey) {
