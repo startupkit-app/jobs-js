@@ -159,6 +159,20 @@ All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
 - [`examples/node-list-jobs.ts`](examples/node-list-jobs.ts) — server-side listing
 - [`examples/browser-apply.html`](examples/browser-apply.html) — browser form with Turnstile + resume upload
 
+## Releasing (maintainers)
+
+Releases publish to npm via **GitHub Actions + npm Trusted Publishing (OIDC)** —
+no `NPM_TOKEN` secret, provenance attached automatically.
+
+1. Bump the version (`npm version patch|minor|major`) and merge to `main`.
+2. The `Release` workflow publishes the new version via OIDC.
+
+The workflow is idempotent — it only publishes when `package.json`'s version
+isn't already on the registry, and is gated behind the repo variable
+`NPM_PUBLISH_ENABLED`. The initial `0.1.0` was published locally (npm requires a
+package to exist before a Trusted Publisher can be configured); every release
+after is CI-only.
+
 ## License
 
 MIT

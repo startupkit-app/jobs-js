@@ -7,15 +7,15 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  # Required for npm Trusted Publishing (OIDC) — no NPM_TOKEN secret needed.
   id-token: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Opt-in: publishing stays off until npm is set up. Set the repo variable
-    # NPM_PUBLISH_ENABLED=true (and the NPM_TOKEN secret) to enable releases.
+    # Opt-in switch. Set the repo variable NPM_PUBLISH_ENABLED=true once the npm
+    # Trusted Publisher is configured (npmjs.com → package → Settings → Publishing).
     if: ${{ vars.NPM_PUBLISH_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -26,19 +26,22 @@ jobs:
           cache: npm
           registry-url: "https://registry.npmjs.org"
 
+      # Trusted Publishing / OIDC requires npm >= 11.5.1; Node 22 ships npm 10.x.
+      - run: npm install -g npm@latest
+
       - run: npm ci
 
       - run: npm run build
 
-      - name: Create release PR or publish to npm
-        # Skipped (job stays green) until the NPM_TOKEN secret is configured.
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        uses: changesets/action@v1
-        with:
-          publish: npm run release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # `publishConfig.provenance: true` in package.json makes
-          # `changeset publish` run npm publish with --provenance,
-          # signed via the id-token permission above.
+      # Publish only when this version isn't already on the registry, so re-runs
+      # and unrelated pushes are no-ops. Auth is via OIDC Trusted Publishing —
+      # no token — and provenance is attached automatically.
+      - name: Publish to npm
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "${name}@${version} already published — skipping."
+          else
+            npm publish
+          fi
