@@ -78,7 +78,10 @@ describe("uploadFile", () => {
     expect(put.rawBody).toBe(blob);
   });
 
-  it("infers filename and content type from a File", async () => {
+  // `File` is only a global on Node 20+. On Node 18 it's absent and the SDK
+  // intentionally degrades (no filename inference), so this capability test
+  // only runs where `File` exists.
+  it.skipIf(typeof File === "undefined")("infers filename and content type from a File", async () => {
     const { calls } = stubFetch((call) =>
       call.method === "POST"
         ? jsonResponse(ticket, 201)

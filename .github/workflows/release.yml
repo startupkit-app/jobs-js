@@ -14,6 +14,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Opt-in: publishing stays off until npm is set up. Set the repo variable
+    # NPM_PUBLISH_ENABLED=true (and the NPM_TOKEN secret) to enable releases.
+    if: ${{ vars.NPM_PUBLISH_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
