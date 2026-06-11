@@ -79,9 +79,15 @@ async function toApiError(response: Response): Promise<KitApiError> {
   return new KitApiError({ status: response.status, code, message, fields });
 }
 
-function createHttp(baseUrl: string, apiKey: string): Http {
+function createHttp(baseUrl: string, apiKey: string | undefined): Http {
   return {
     async request(method, path, options = {}) {
+      if (!apiKey) {
+        throw new Error(
+          "@startupkit-app/jobs: no API key configured. Pass a publishableKey (pk_…) for browser code or a secretKey (sk_…) on the server."
+        );
+      }
+
       const url = new URL(path, baseUrl);
       if (options.query) {
         for (const [key, value] of Object.entries(options.query)) {
@@ -134,19 +140,16 @@ function createHttp(baseUrl: string, apiKey: string): Http {
  * `secretKey` (`sk_…`, server-only). Using a secret key in a browser
  * throws immediately.
  */
-export function createClient(options: ClientOptions): KitJobsClient {
+export function createClient(options: ClientOptions = {}): KitJobsClient {
   const { publishableKey, secretKey, baseUrl = DEFAULT_BASE_URL } = options;
 
+  // Always-wrong config/security errors are eager. A *missing* key is an
+  // environmental condition (e.g. an env var not yet set at build time), so it
+  // defers to the first request — letting the client be constructed at module
+  // scope in serverless/SSG without crashing the build.
   if (publishableKey && secretKey) {
     throw new Error(
       "@startupkit-app/jobs: pass either publishableKey or secretKey, not both."
-    );
-  }
-
-  const apiKey = secretKey ?? publishableKey;
-  if (!apiKey) {
-    throw new Error(
-      "@startupkit-app/jobs: either publishableKey (pk_…) or secretKey (sk_…) is required."
     );
   }
 
@@ -156,6 +159,7 @@ export function createClient(options: ClientOptions): KitJobsClient {
     );
   }
 
+  const apiKey = secretKey ?? publishableKey;
   const http = createHttp(baseUrl, apiKey);
 
   return {

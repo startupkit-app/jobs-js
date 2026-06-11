@@ -18,8 +18,10 @@ describe("createClient", () => {
     ).toThrow(/not both/);
   });
 
-  it("throws when no key is passed", () => {
-    expect(() => createClient({})).toThrow(/required/);
+  it("constructs without a key but throws on first request", async () => {
+    const client = createClient({});
+    await expect(client.getJob("tok")).rejects.toThrow(/no API key/);
+    await expect(client.listJobs()).rejects.toThrow(/no API key/);
   });
 
   it("throws when a secret key is used in a browser", () => {

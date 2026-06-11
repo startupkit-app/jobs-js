@@ -1,6 +1,6 @@
 {
   "name": "@startupkit-app/jobs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typed, zero-dependency fetch client for Kit's (startupkit.app) public hiring API — list published jobs and submit applications from your own job site.",
   "keywords": [
     "startupkit",

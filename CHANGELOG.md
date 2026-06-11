@@ -1,5 +1,15 @@
 # @startupkit-app/jobs
 
+## 0.1.1
+
+### Patch Changes
+
+- `createClient` no longer throws when no key is configured — it constructs and
+  defers the error to the first request (with an actionable message). This lets
+  the client be instantiated at module scope in serverless/SSG builds where the
+  key arrives via runtime env. The both-keys and secret-key-in-browser guards
+  stay eager.
+
 ## 0.1.0
 
 ### Minor Changes
