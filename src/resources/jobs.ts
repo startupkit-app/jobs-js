@@ -1,5 +1,12 @@
 import type { Http } from "../client";
-import type { Job, JobDetail, ListJobsParams, Page, Pagination } from "../types";
+import type {
+  Job,
+  JobDetail,
+  ListJobsParams,
+  Page,
+  Pagination,
+  RequestOptions,
+} from "../types";
 
 interface RawJobsPage {
   data: Job[];
@@ -23,19 +30,22 @@ function buildPage<T>(
 
 export async function listJobs(
   http: Http,
-  params: ListJobsParams = {}
+  params: ListJobsParams = {},
+  options?: RequestOptions
 ): Promise<Page<Job>> {
   const raw = await http.request<RawJobsPage>("GET", "/api/public/v1/jobs", {
     query: { ...params },
+    request: options,
   });
-  return buildPage(raw, (page) => listJobs(http, { ...params, page }));
+  return buildPage(raw, (page) => listJobs(http, { ...params, page }, options));
 }
 
 export async function* allJobs(
   http: Http,
-  params: ListJobsParams = {}
+  params: ListJobsParams = {},
+  options?: RequestOptions
 ): AsyncGenerator<Job, void, undefined> {
-  let page: Page<Job> | null = await listJobs(http, params);
+  let page: Page<Job> | null = await listJobs(http, params, options);
   while (page) {
     yield* page.data;
     const next = page.nextPage();
@@ -43,9 +53,14 @@ export async function* allJobs(
   }
 }
 
-export function getJob(http: Http, publicToken: string): Promise<JobDetail> {
+export function getJob(
+  http: Http,
+  publicToken: string,
+  options?: RequestOptions
+): Promise<JobDetail> {
   return http.request<JobDetail>(
     "GET",
-    `/api/public/v1/jobs/${encodeURIComponent(publicToken)}`
+    `/api/public/v1/jobs/${encodeURIComponent(publicToken)}`,
+    { request: options }
   );
 }

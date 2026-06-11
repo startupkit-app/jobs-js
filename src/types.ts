@@ -179,6 +179,17 @@ export interface ErrorEnvelope {
   };
 }
 
+/**
+ * Per-request fetch options forwarded to the underlying `fetch` on read methods
+ * (`listJobs`, `getJob`). `next` integrates with the Next.js data cache (ISR +
+ * tag revalidation) and is ignored by runtimes that don't read it.
+ */
+export interface RequestOptions {
+  cache?: RequestCache;
+  next?: { revalidate?: number | false; tags?: string[] };
+  signal?: AbortSignal;
+}
+
 /** Options for `createClient`. Pass exactly one of the two keys. */
 export interface ClientOptions {
   /** Publishable key (`pk_…`) — safe for browsers; CORS-restricted by Origin. */

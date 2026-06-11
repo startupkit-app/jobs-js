@@ -12,6 +12,7 @@ import type {
   JobDetail,
   ListJobsParams,
   Page,
+  RequestOptions,
   UploadMeta,
   UploadTicket,
 } from "./types";
@@ -26,6 +27,7 @@ export interface Http {
     options?: {
       query?: Record<string, string | number | boolean | undefined>;
       body?: unknown;
+      request?: RequestOptions;
     }
   ): Promise<T>;
 }
@@ -33,11 +35,11 @@ export interface Http {
 /** The client returned by `createClient`. */
 export interface KitJobsClient {
   /** Lists published jobs, one page at a time. */
-  listJobs(params?: ListJobsParams): Promise<Page<Job>>;
+  listJobs(params?: ListJobsParams, options?: RequestOptions): Promise<Page<Job>>;
   /** Iterates every published job across all pages. */
-  allJobs(params?: ListJobsParams): AsyncIterable<Job>;
+  allJobs(params?: ListJobsParams, options?: RequestOptions): AsyncIterable<Job>;
   /** Fetches full job detail (description, stages, application form). */
-  getJob(publicToken: string): Promise<JobDetail>;
+  getJob(publicToken: string, options?: RequestOptions): Promise<JobDetail>;
   /** Low-level: registers a blob and returns direct-upload instructions. */
   createUpload(meta: UploadMeta): Promise<UploadTicket>;
   /**
@@ -92,10 +94,16 @@ function createHttp(baseUrl: string, apiKey: string): Http {
         Accept: "application/json",
       };
 
-      const init: RequestInit = { method, headers };
+      // `next` is a Next.js fetch extension; harmless on other runtimes.
+      const init: RequestInit & { next?: RequestOptions["next"] } = { method, headers };
       if (options.body !== undefined) {
         headers["Content-Type"] = "application/json";
         init.body = JSON.stringify(options.body);
+      }
+      if (options.request) {
+        if (options.request.cache !== undefined) init.cache = options.request.cache;
+        if (options.request.signal !== undefined) init.signal = options.request.signal;
+        if (options.request.next !== undefined) init.next = options.request.next;
       }
 
       let response: Response;
@@ -151,9 +159,9 @@ export function createClient(options: ClientOptions): KitJobsClient {
   const http = createHttp(baseUrl, apiKey);
 
   return {
-    listJobs: (params) => listJobs(http, params),
-    allJobs: (params) => allJobs(http, params),
-    getJob: (publicToken) => getJob(http, publicToken),
+    listJobs: (params, options) => listJobs(http, params, options),
+    allJobs: (params, options) => allJobs(http, params, options),
+    getJob: (publicToken, options) => getJob(http, publicToken, options),
     createUpload: (meta) => createUpload(http, meta),
     uploadFile: (file, meta) => uploadFile(http, file, meta),
     apply: (publicToken, input, opts) => apply(http, publicToken, input, opts),

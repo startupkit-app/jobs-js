@@ -17,6 +17,7 @@ export type {
   Question,
   QuestionType,
   ResumeRequirements,
+  RequestOptions,
   Salary,
   Stage,
   TurnstileConfig,
