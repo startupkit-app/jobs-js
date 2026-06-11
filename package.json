@@ -11,7 +11,14 @@
     "job-board",
     "api-client"
   ],
-  "homepage": "https://startupkit.app",
+  "homepage": "https://github.com/startupkit-app/jobs-js#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/startupkit-app/jobs-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/startupkit-app/jobs-js/issues"
+  },
   "license": "MIT",
   "author": "startupkit.app",
   "type": "module",
