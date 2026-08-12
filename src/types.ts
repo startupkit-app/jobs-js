@@ -78,6 +78,13 @@ export interface Stage {
 
 /** Resume upload constraints for the posting. */
 export interface ResumeRequirements {
+  /**
+   * Whether the posting's first hiring stage mandates a CV. When `true`, an
+   * application submitted without `resume_signed_id` is rejected with a 422
+   * `validation_failed` — upload the file first and pass the signed id to
+   * `apply`. Always present on the wire (never null).
+   */
+  required: boolean;
   content_types: string[];
   max_byte_size: number;
 }

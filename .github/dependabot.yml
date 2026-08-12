@@ -1,0 +1,67 @@
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # npm dependencies
+  #
+  # This package ships zero runtime dependencies - everything here is a
+  # devDependency (tsup, vitest, typescript, changesets, publint, attw), so
+  # these updates affect the build/test toolchain and never the published
+  # dependency tree.
+  #
+  # `cooldown` mirrors the 7-day `min-release-age` in .npmrc so Dependabot does
+  # not open PRs for versions the local/CI install would refuse to resolve.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 7
+      semver-minor-days: 7
+      semver-patch-days: 7
+    groups:
+      # Collapse the routine minor/patch churn into a single weekly PR.
+      # Majors are deliberately left ungrouped so each one gets its own PR
+      # and its own review.
+      npm-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions
+  #
+  # Only two workflows here (ci.yml, release.yml) - release.yml publishes to npm
+  # via Trusted Publishing (OIDC), so action bumps in it deserve a careful read.
+  #
+  # NOTE: the github-actions ecosystem supports `default-days` ONLY - the
+  # semver-*-days variants are not honored here (actions are not SemVer-bump
+  # classified by Dependabot).
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

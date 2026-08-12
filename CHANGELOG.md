@@ -1,5 +1,33 @@
 # @startupkit-app/jobs
 
+## 0.2.0
+
+### Minor Changes
+
+- Expose `application_form.resume.required` on `JobDetail`.
+
+  The API has always returned this boolean — it says whether the posting's hiring
+  stage mandates a CV — but the SDK's `ResumeRequirements` type did not declare
+  it. It is now typed as a non-optional `required: boolean` (the field is always
+  present on the wire and never null), so you can mark the resume input as
+  required and block submission client-side instead of discovering the constraint
+  from a 422 `validation_failed` after the upload.
+
+  ```ts
+  const { required } = job.application_form.resume;
+  if (required && !file)
+    return showError("A resume is required for this role.");
+  ```
+
+  This replaces the older convention of looking for a required form field named
+  `resume` in `application_form.fields`. The API no longer emits that field and
+  ignores it if sent — read `application_form.resume.required` instead.
+
+  Type-only change: no runtime behaviour was modified. It is a minor rather than
+  a patch because the added non-optional property can surface a type error in
+  code that constructs a `ResumeRequirements` / `ApplicationForm` object literal
+  (test fixtures, mocks).
+
 ## 0.1.1
 
 ### Patch Changes
