@@ -138,7 +138,11 @@ describe("getJob", () => {
         ],
         questions: [],
         consent_disclosure_html: "<p>GDPR</p>",
-        resume: { content_types: ["application/pdf"], max_byte_size: 10485760 },
+        resume: {
+          required: true,
+          content_types: ["application/pdf"],
+          max_byte_size: 10485760,
+        },
         turnstile: { required: false, sitekey: null },
       },
     };
@@ -152,5 +156,36 @@ describe("getJob", () => {
       required: false,
       sitekey: null,
     });
+    expect(result.application_form.resume).toEqual({
+      required: true,
+      content_types: ["application/pdf"],
+      max_byte_size: 10485760,
+    });
+    expect(result.application_form.resume.required).toBe(true);
+  });
+
+  it("keeps resume.required false when the stage does not mandate a CV", async () => {
+    const detail = {
+      ...job("tok1"),
+      description_html: "<p>Build things</p>",
+      accepting_applications: true,
+      stages: [],
+      application_form: {
+        fields: [],
+        questions: [],
+        consent_disclosure_html: "",
+        resume: {
+          required: false,
+          content_types: ["application/pdf"],
+          max_byte_size: 10485760,
+        },
+        turnstile: { required: false, sitekey: null },
+      },
+    };
+    stubFetch(() => jsonResponse(detail));
+
+    const result = await client().getJob("tok1");
+
+    expect(result.application_form.resume.required).toBe(false);
   });
 });

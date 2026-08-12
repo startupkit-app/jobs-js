@@ -90,8 +90,8 @@ storage, and hands back the `signed_id` to attach to the application.
 ```ts
 const file = fileInput.files[0]; // or a Blob in Node
 
-// Optional client-side validation against the job's constraints:
-const { content_types, max_byte_size } = job.application_form.resume;
+// The job's constraints — validate client-side before uploading:
+const { required, content_types, max_byte_size } = job.application_form.resume;
 
 const { signed_id } = await kit.uploadFile(file);
 
@@ -100,6 +100,38 @@ await kit.apply(job.id, {
   resume_signed_id: signed_id,
 });
 ```
+
+### Is a resume required?
+
+`application_form.resume.required` tells you whether the posting's hiring
+stage mandates a CV. It is always present and always a boolean. Use it to
+mark the field and to block submission before you ever call the API — an
+application sent without `resume_signed_id` while `required` is `true` is
+rejected with a 422 `validation_failed`.
+
+```ts
+const { required } = job.application_form.resume;
+
+fileInput.required = required;
+label.textContent = required ? "Resume *" : "Resume";
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = fileInput.files[0];
+
+  if (required && !file) {
+    showError("A resume is required for this role.");
+    return; // don't spend a round-trip on a submission that will 422
+  }
+
+  const resume_signed_id = file ? (await kit.uploadFile(file)).signed_id : undefined;
+  await kit.apply(job.id, { email, resume_signed_id });
+});
+```
+
+The resume is **not** listed in `application_form.fields` — it is described
+solely by `application_form.resume` and submitted via the dedicated
+`resume_signed_id` input, not as one of the form fields.
 
 Need lower-level control? `createUpload(meta)` registers the blob and
 returns the `direct_upload.url` + `direct_upload.headers` so you can run
