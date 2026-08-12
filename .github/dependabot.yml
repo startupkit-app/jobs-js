@@ -36,6 +36,28 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # TypeScript 7.0 is the native Go port, and its `exports` map no longer
+      # exposes the JS compiler API. `tsc` itself works, but tsup's bundled
+      # rollup-plugin-dts does `require("typescript")` to emit declarations and
+      # fails with "Cannot read properties of undefined (reading
+      # 'useCaseSensitiveFileNames')". tsup 8.5.1 is the newest release and
+      # predates this.
+      #
+      # Scoped to 7.0.x deliberately: 7.1 and later still get PRs, so this stops
+      # the weekly noise without hiding the release that fixes it. tsup itself is
+      # NOT ignored, so an upstream fix arrives through its own update.
+      - dependency-name: "typescript"
+        versions: ["7.0.x"]
+
+      # @types/node tracks the `engines.node` floor (>=20.19.0), which is also the
+      # lowest leg of the CI matrix, so the types and the oldest supported runtime
+      # agree. Typing against a much newer major would let code compile against
+      # APIs that do not exist on the minimum supported Node.
+      #
+      # Revisit whenever engines.node moves - this pin should move with it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # ---------------------------------------------------------------------------
   # GitHub Actions
