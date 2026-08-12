@@ -11,15 +11,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [20, 22, 24]
     name: Node ${{ matrix.node-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+
+      # The repo's .npmrc sets `min-release-age=7` (supply-chain cooldown), which
+      # is silently IGNORED by npm < 11.10.0. Node 20/22/24 all ship npm 10.x, so
+      # without this step the cooldown does not apply in CI at all.
+      #
+      # Pinned to ^11.10.0 rather than `latest`: npm 12 requires Node
+      # ^22.22.2 || ^24.15.0 || >=26, so `npm@latest` would break the Node 20 leg.
+      # npm 11 supports ^20.17.0 || >=22.9.0, which covers the whole matrix.
+      - name: Pin npm (>= 11.10.0 for .npmrc min-release-age)
+        run: npm install -g npm@^11.10.0
 
       - run: npm ci
 

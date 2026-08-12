@@ -14,7 +14,16 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+
+    // tsup's .d.ts step (node_modules/tsup/dist/rollup.js) unconditionally
+    // injects `baseUrl: compilerOptions.baseUrl || "."`, and TypeScript 6.0
+    // turns the `baseUrl` deprecation into a hard error (TS5101). tsup 8.5.1 is
+    // the latest release and predates TS 6, so there is no upstream fix yet.
+    // This repo's own config sets no deprecated options — `tsc --noEmit` passes
+    // cleanly even on TypeScript 7 — so this flag suppresses nothing of ours.
+    // Remove it once tsup stops injecting `baseUrl`.
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src", "test", "tsup.config.ts"]
 }
