@@ -1,5 +1,46 @@
 # @startupkit-app/jobs
 
+## 0.3.0
+
+### Minor Changes
+
+- Add `getTalentPool` and `joinTalentPool` — keep good candidates on file when no
+  posting fits them today.
+
+  `getTalentPool()` returns the intake schema to render: `accepting_signups`,
+  `fields`, `resume` constraints, `turnstile`, and `consent`.
+  `joinTalentPool(input)` submits the entry and returns
+  `{ id, status: "pending_verification", submitted_at }` — the entry is unverified
+  until the person clicks Kit's double-opt-in email, and the response echoes back
+  no personal data.
+
+  Three things to get right:
+  - **Consent is a fact, not a flag.** Render `consent.disclosure_html` as the
+    label of a real checkbox that starts unchecked, and send its actual state. A
+    hardcoded `true` produces a consent record you cannot defend; an omitted or
+    `false` value is rejected with a 422 `consent_required` rather than stored.
+  - **Server-side callers should pass `consent_ip_address`** — the first hop of
+    `x-forwarded-for`. Without it every consent receipt names your server's egress
+    IP instead of the person's. It is caller-asserted, so it is honoured only for
+    secret (`sk_…`) keys and ignored for publishable ones; malformed values are
+    rejected with a 422 `invalid_consent_ip`.
+  - **CVs reuse the existing upload flow.** `createUpload` / `uploadFile`
+    unchanged, then pass the returned `signed_id` as `resume_signed_id`.
+
+  New error codes: `already_in_talent_pool` (409), `bot_protection_required`
+  (403), and 429 above 5 signups per hour per IP. New exported types:
+  `TalentPoolForm`, `TalentPoolConsent`, `TalentPoolField`, `TalentPoolResume`,
+  `TalentPoolInput`, `TalentPoolResult`. Requires the matching Kit server release —
+  the endpoints 404 without it.
+
+- Raise the minimum supported Node from 18.17 to 20.19.0; CI now tests 20, 22 and 24.
+
+  Node 18 is end of life and the test toolchain (vitest 4, vite 8) no longer runs
+  on it, so `>=18.17` claimed support nothing verified. Declaration only — the
+  client uses `fetch` and no Node built-ins, so it may well still work on 18, but
+  that is untested and unsupported. Installing on 18 now warns `EBADENGINE`, or
+  fails outright under `engine-strict`.
+
 ## 0.2.0
 
 ### Minor Changes
