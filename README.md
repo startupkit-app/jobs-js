@@ -5,7 +5,7 @@ Typed, zero-dependency JavaScript/TypeScript client for [Kit's](https://startupk
 - **Zero runtime dependencies** — native `fetch` only
 - **ESM + CJS**, fully typed, tree-shakeable
 - **snake_case wire format preserved** — what the API returns is what you get
-- Node `>= 18.17`
+- Node `>= 20.19.0`
 
 ## Install
 
@@ -137,6 +137,74 @@ Need lower-level control? `createUpload(meta)` registers the blob and
 returns the `direct_upload.url` + `direct_upload.headers` so you can run
 the `PUT` yourself.
 
+## Talent pool
+
+People who like the company but see no role that fits can be kept on file
+instead of lost. `getTalentPool` returns the intake schema — which fields to
+render, the consent terms, resume constraints, Turnstile config — and
+`joinTalentPool` submits the entry.
+
+```ts
+const pool = await kit.getTalentPool();
+
+if (!pool.accepting_signups) return; // hide the form entirely
+
+// Render pool.fields, and pool.consent.disclosure_html next to a checkbox.
+// pool.consent.retention_months says how long the entry is kept;
+// pool.consent.privacy_policy_url may be null.
+
+const resume = checkbox.checked && file ? await kit.uploadFile(file) : undefined;
+
+const entry = await kit.joinTalentPool(
+  {
+    email: "jane@example.com",
+    linkedin_url: "https://linkedin.com/in/jane",
+    resume_signed_id: resume?.signed_id,
+    consent: consentCheckbox.checked, // never hardcode true — see below
+  },
+  { turnstileToken } // when pool.turnstile.required
+);
+
+console.log(entry.id, entry.status); // "tpe_…", "pending_verification"
+```
+
+The entry is created **unverified**: Kit emails a double-opt-in link and the
+person is only in the pool once they click it. The response echoes back no
+personal data.
+
+### Consent is a fact, not a default
+
+`consent` records what the person actually did. Send the real state of a
+ticked checkbox they saw the disclosure next to — never a literal `true`, and
+never a checkbox that starts checked. A talent-pool entry is a consent record
+you may later have to justify; a hardcoded `true` makes it worthless.
+
+Send `consent: false` and the API rejects the entry with a 422
+`consent_required` rather than storing it.
+
+### `consent_ip_address` (secret keys only)
+
+If your own server posts the form on the visitor's behalf, the IP Kit observes
+is your egress IP, not theirs. Pass `consent_ip_address` to assert the end
+user's IP as the consenting party instead:
+
+```ts
+// Server-side, sk_… key. Take the IP from your framework's request object.
+await kit.joinTalentPool({
+  email,
+  consent: form.consent === "on",
+  consent_ip_address: requestIp,
+});
+```
+
+It is **caller-asserted** — Kit cannot verify it — so it is honoured only for
+secret (`sk_…`) keys. With a publishable key it is ignored and the observed
+request IP is recorded. A malformed value is rejected with a 422
+`invalid_consent_ip`.
+
+Signups are rate limited to 5 per hour per IP (429). Other talent-pool codes:
+`already_in_talent_pool` (409), `bot_protection_required` (403).
+
 ## Error handling
 
 Non-2xx API responses throw `KitApiError`; failures that never reach the
@@ -181,6 +249,8 @@ client.getJob(publicToken): Promise<JobDetail>
 client.createUpload(meta): Promise<UploadTicket>
 client.uploadFile(file, meta?): Promise<{ signed_id: string }>
 client.apply(publicToken, input, opts?): Promise<ApplicationResult>
+client.getTalentPool(): Promise<TalentPoolForm>
+client.joinTalentPool(input, opts?): Promise<TalentPoolResult>
 ```
 
 All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
