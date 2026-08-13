@@ -177,6 +177,78 @@ export interface ApplicationResult {
   submitted_at: string;
 }
 
+/** Consent terms a talent-pool signup must show and record. */
+export interface TalentPoolConsent {
+  /** Whether `TalentPoolInput.consent` must be `true` for an entry to be accepted. */
+  required: boolean;
+  /** Retention disclosure to render verbatim next to the consent checkbox. */
+  disclosure_html: string;
+  /** How long an entry is kept on file, in months. */
+  retention_months: number;
+  /** The account's privacy policy, or `null` when it publishes none. */
+  privacy_policy_url: string | null;
+}
+
+/** One field of the talent-pool intake form. */
+export interface TalentPoolField {
+  /** Wire key to send inside `TalentPoolInput` (`email`, `linkedin_url`, …). */
+  name: string;
+  /** Whether a blank value is rejected with a 422 `validation_failed`. */
+  required: boolean;
+}
+
+/**
+ * Resume constraints for talent-pool signups. Identical to a job posting's:
+ * `required` says whether a CV must accompany the entry, and the file is
+ * uploaded through the same direct-upload flow.
+ */
+export type TalentPoolResume = ResumeRequirements;
+
+/** Everything needed to render the talent-pool signup form. */
+export interface TalentPoolForm {
+  /** Whether the account is currently taking new entries. */
+  accepting_signups: boolean;
+  /** Consent terms — display `consent.disclosure_html` beside the checkbox. */
+  consent: TalentPoolConsent;
+  /** The fields to render, in display order. */
+  fields: TalentPoolField[];
+  /** Resume constraints — validate client-side before uploading. */
+  resume: TalentPoolResume;
+  /** Turnstile configuration for browser-side signups. */
+  turnstile: TurnstileConfig;
+}
+
+/** Talent-pool signup payload for `joinTalentPool`. */
+export interface TalentPoolInput {
+  /** The candidate's email address. Kit sends a double-opt-in link here. */
+  email: string;
+  /** LinkedIn profile URL. */
+  linkedin_url?: string;
+  /** Signed id from `uploadFile` / `createUpload` for the resume. */
+  resume_signed_id?: string;
+  /**
+   * Whether the person affirmatively consented (a ticked checkbox). Never
+   * hardcode `true` — the value is recorded as a fact about what they did.
+   */
+  consent: boolean;
+  /**
+   * IP of the person who consented, for servers that proxy a browser form.
+   * Honoured only for secret (`sk_…`) keys; with a publishable key the
+   * observed request IP is recorded instead and this is ignored.
+   */
+  consent_ip_address?: string;
+}
+
+/** Result of a successful talent-pool signup. Echoes back no PII. */
+export interface TalentPoolResult {
+  /** Talent-pool entry id (`tpe_…`). */
+  id: string;
+  /** Entries start unverified — Kit emails a double-opt-in link. */
+  status: "pending_verification";
+  /** ISO 8601 timestamp. */
+  submitted_at: string;
+}
+
 /** JSON error envelope returned by the API on non-2xx responses. */
 export interface ErrorEnvelope {
   error: {

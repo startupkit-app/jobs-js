@@ -3,6 +3,7 @@ import { isBrowser } from "./internal/env";
 import { listJobs, allJobs, getJob } from "./resources/jobs";
 import { createUpload, uploadFile } from "./resources/uploads";
 import { apply } from "./resources/applications";
+import { getTalentPool, joinTalentPool } from "./resources/talent-pool";
 import type {
   ApplicationInput,
   ApplicationResult,
@@ -13,6 +14,9 @@ import type {
   ListJobsParams,
   Page,
   RequestOptions,
+  TalentPoolForm,
+  TalentPoolInput,
+  TalentPoolResult,
   UploadMeta,
   UploadTicket,
 } from "./types";
@@ -57,6 +61,17 @@ export interface KitJobsClient {
     input: ApplicationInput,
     opts?: { turnstileToken?: string }
   ): Promise<ApplicationResult>;
+  /** Fetches the talent-pool intake schema (consent terms, fields, resume rules). */
+  getTalentPool(options?: RequestOptions): Promise<TalentPoolForm>;
+  /**
+   * Adds someone to the talent pool. The entry is created unverified and Kit
+   * emails a double-opt-in link; `input.consent` must reflect an affirmative
+   * action by the person, never a hardcoded `true`.
+   */
+  joinTalentPool(
+    input: TalentPoolInput,
+    opts?: { turnstileToken?: string }
+  ): Promise<TalentPoolResult>;
 }
 
 async function toApiError(response: Response): Promise<KitApiError> {
@@ -169,5 +184,7 @@ export function createClient(options: ClientOptions = {}): KitJobsClient {
     createUpload: (meta) => createUpload(http, meta),
     uploadFile: (file, meta) => uploadFile(http, file, meta),
     apply: (publicToken, input, opts) => apply(http, publicToken, input, opts),
+    getTalentPool: (options) => getTalentPool(http, options),
+    joinTalentPool: (input, opts) => joinTalentPool(http, input, opts),
   };
 }
