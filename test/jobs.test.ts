@@ -131,7 +131,13 @@ describe("getJob", () => {
       ...job("tok en"),
       description_html: "<p>Build things</p>",
       accepting_applications: true,
-      stages: [{ name: "Screening", type: "screening" }],
+      stages: [
+        {
+          name: "Screening",
+          type: "screening",
+          compensation: { amount: 250.5, currency: "EUR" },
+        },
+      ],
       application_form: {
         fields: [
           { name: "email", type: "email", label: "Email", required: true },
@@ -162,6 +168,10 @@ describe("getJob", () => {
       max_byte_size: 10485760,
     });
     expect(result.application_form.resume.required).toBe(true);
+    expect(result.stages[0]?.compensation).toEqual({
+      amount: 250.5,
+      currency: "EUR",
+    });
   });
 
   it("keeps resume.required false when the stage does not mandate a CV", async () => {

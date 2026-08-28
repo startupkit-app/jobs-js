@@ -70,10 +70,20 @@ export interface Question {
   options?: string[];
 }
 
+/** One-time compensation offered for completing a hiring stage. */
+export interface StageCompensation {
+  /** Amount in whole currency units (for example, `250.5` means 250.50). */
+  amount: number;
+  /** Currency code configured by the employer, such as `USD` or `EUR`. */
+  currency: string;
+}
+
 /** A stage in the hiring pipeline (read-only metadata). */
 export interface Stage {
   name: string;
   type: string;
+  /** Present only when the employer offers compensation for this stage. */
+  compensation?: StageCompensation;
 }
 
 /** Resume upload constraints for the posting. */

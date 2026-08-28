@@ -1,5 +1,27 @@
 # @startupkit-app/jobs
 
+## 0.4.0
+
+### Minor Changes
+
+- Expose optional one-time hiring-stage compensation on `JobDetail.stages`.
+
+  Paid stages now include `compensation: { amount, currency }`; unpaid stages
+  omit the property. The amount is a JSON number in whole currency units and the
+  currency is the employer's configured currency code. This is separate from the role's recurring
+  `salary`:
+
+  ```ts
+  for (const stage of job.stages) {
+    if (stage.compensation) {
+      renderStagePayment(stage.compensation.amount, stage.compensation.currency);
+    }
+  }
+  ```
+
+  New exported type: `StageCompensation`. Requires the matching Kit server
+  release; older servers remain compatible because `compensation` is optional.
+
 ## 0.3.0
 
 ### Minor Changes

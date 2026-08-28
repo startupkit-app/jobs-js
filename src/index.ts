@@ -20,6 +20,7 @@ export type {
   RequestOptions,
   Salary,
   Stage,
+  StageCompensation,
   TalentPoolConsent,
   TalentPoolField,
   TalentPoolForm,

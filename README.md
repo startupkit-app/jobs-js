@@ -253,8 +253,25 @@ client.getTalentPool(): Promise<TalentPoolForm>
 client.joinTalentPool(input, opts?): Promise<TalentPoolResult>
 ```
 
+`JobDetail.stages` includes an optional `compensation` object when the employer
+offers a one-time payment for completing that stage:
+
+```ts
+for (const stage of job.stages) {
+  if (stage.compensation) {
+    console.log(
+      `${stage.name}: ${stage.compensation.amount} ${stage.compensation.currency}`,
+    );
+  }
+}
+```
+
+Stage compensation is separate from the role's recurring `salary` and is omitted
+for unpaid stages.
+
 All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
-`ApplicationResult`, `Page`, `FormField`, `Question`, …) are exported.
+`ApplicationResult`, `Page`, `FormField`, `Question`, `StageCompensation`, …)
+are exported.
 
 ## Examples
 
