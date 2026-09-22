@@ -205,6 +205,90 @@ request IP is recorded. A malformed value is rejected with a 422
 Signups are rate limited to 5 per hour per IP (429). Other talent-pool codes:
 `already_in_talent_pool` (409), `bot_protection_required` (403).
 
+## Job analytics (browser tracker)
+
+Kit's **Hiring → Analytics** dashboard — views, unique visitors, traffic
+sources, UTM campaigns, countries, devices, landing pages, and the view → apply
+funnel — is fed by page events. Kit's hosted career portal sends them itself; a
+site built on this SDK has to, or the dashboard stays empty. `createTracker`
+does it: five typed events, batched and posted straight from the visitor's
+browser, recorded by Kit as the same events the hosted portal writes.
+
+```ts
+import { createTracker } from "@startupkit-app/jobs";
+
+// One per site. Safe at module scope: on the server, or without a key, it is a no-op.
+export const tracker = createTracker({
+  publishableKey: process.env.NEXT_PUBLIC_KIT_PUBLISHABLE_KEY,
+  onError: (error) => console.warn("Kit analytics:", error),
+});
+```
+
+Then, with `job.id` being the public token from `listJobs` / `getJob`:
+
+| Call | Where |
+| --- | --- |
+| `tracker.jobBoardViewed()` | jobs list page rendered |
+| `tracker.jobViewed(job.id)` | job detail page rendered |
+| `tracker.applicationStarted(job.id)` | first focus on the apply form (deduped per job) |
+| `tracker.applicationSubmitted(job.id)` | after `apply` resolved |
+| `tracker.talentPoolJoined()` | after `joinTalentPool` resolved |
+
+Next.js / React:
+
+```tsx
+import { tracker } from "@/lib/kit-tracker";
+
+// app/jobs/page.tsx
+useEffect(() => tracker.jobBoardViewed(), []);
+
+// app/jobs/[id]/page.tsx
+useEffect(() => tracker.jobViewed(job.id), [job.id]);
+
+<form onFocus={() => tracker.applicationStarted(job.id)} onSubmit={onSubmit}>
+
+async function onSubmit() {
+  const result = await kit.apply(job.id, input, { turnstileToken });
+  tracker.applicationSubmitted(job.id);
+}
+```
+
+Plain HTML:
+
+```html
+<script type="module">
+  import { createTracker } from "https://esm.sh/@startupkit-app/jobs@0.5";
+
+  const jobId = new URLSearchParams(location.search).get("job");
+  const tracker = createTracker({ publishableKey: "pk_live_…" });
+
+  tracker.jobViewed(jobId);
+  document.querySelector("form").addEventListener("focusin", () =>
+    tracker.applicationStarted(jobId)
+  );
+</script>
+```
+
+Three things to know:
+
+- **Publishable keys only.** Visitor identity (masked IP + user agent) and geo
+  are read from the browser's request, so relaying events through your server
+  would count every visitor as your server. Passing an `sk_…` key throws.
+- **Allowed origins.** If the key has an origin allowlist (Hiring → Settings →
+  Public API Keys), your site's origin must be on it; otherwise every batch is a
+  403 `origin_not_allowed`. Attribution (landing page, referring domain, UTM) is
+  anchored on the request Origin, so events for a different host are ignored.
+- **Nothing throws.** Tracking never breaks the page. Outside a browser,
+  without a key, or with `enabled: false` (wire it to your consent manager) the
+  tracker is a no-op. Network errors, non-2xx responses, and per-event
+  rejections such as `unknown_job` for a mistyped token go to `onError`.
+
+Events are batched for `flushInterval` ms (default 1000) or until 20 are
+queued, and flushed with `fetch(…, { keepalive: true })` when the tab is hidden
+or the page unloads. `flush()` sends what is queued now and resolves once every
+in-flight batch settled. Each event carries `url` (`location.href`), `referrer`
+and an ISO `time`, all captured when you call it.
+
 ## Error handling
 
 Non-2xx API responses throw `KitApiError`; failures that never reach the
@@ -251,6 +335,16 @@ client.uploadFile(file, meta?): Promise<{ signed_id: string }>
 client.apply(publicToken, input, opts?): Promise<ApplicationResult>
 client.getTalentPool(): Promise<TalentPoolForm>
 client.joinTalentPool(input, opts?): Promise<TalentPoolResult>
+
+createTracker({ publishableKey, baseUrl?, enabled?, flushInterval?, onError? }): KitTracker
+
+tracker.jobBoardViewed(): void
+tracker.jobViewed(job): void
+tracker.applicationStarted(job): void
+tracker.applicationSubmitted(job): void
+tracker.talentPoolJoined(): void
+tracker.track(event): void
+tracker.flush(): Promise<void>
 ```
 
 `JobDetail.stages` includes an optional `compensation` object when the employer
@@ -270,13 +364,14 @@ Stage compensation is separate from the role's recurring `salary` and is omitted
 for unpaid stages.
 
 All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
-`ApplicationResult`, `Page`, `FormField`, `Question`, `StageCompensation`, …)
-are exported.
+`ApplicationResult`, `Page`, `FormField`, `Question`, `StageCompensation`,
+`KitTracker`, `TrackerOptions`, `TrackEvent`, …) are exported.
 
 ## Examples
 
 - [`examples/node-list-jobs.ts`](examples/node-list-jobs.ts) — server-side listing
 - [`examples/browser-apply.html`](examples/browser-apply.html) — browser form with Turnstile + resume upload
+- [`examples/browser-track.html`](examples/browser-track.html) — job page feeding Kit's analytics (view → started → submitted)
 
 ## Releasing (maintainers)
 

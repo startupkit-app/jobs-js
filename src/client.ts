@@ -74,7 +74,7 @@ export interface KitJobsClient {
   ): Promise<TalentPoolResult>;
 }
 
-async function toApiError(response: Response): Promise<KitApiError> {
+export async function toApiError(response: Response): Promise<KitApiError> {
   let code = "unknown_error";
   let message = `Request failed with status ${response.status}`;
   let fields: Record<string, string[]> | undefined;

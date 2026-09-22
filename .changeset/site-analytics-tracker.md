@@ -1,0 +1,114 @@
+---
+"@startupkit-app/jobs": minor
+---
+
+Add `createTracker` — a browser tracker that feeds Kit's job analytics from a
+headless job site.
+
+Kit's **Hiring → Analytics** dashboard (views, unique visitors, traffic sources,
+UTM campaigns, countries, devices, landing pages, view → apply funnel) was fed
+only by Kit's hosted career portal, so sites built on this SDK showed an empty
+dashboard. The tracker posts five typed events straight from the visitor's
+browser and Kit records them as the same events the hosted portal writes, so
+every existing chart fills in unchanged.
+
+```ts
+import { createTracker } from "@startupkit-app/jobs";
+
+const tracker = createTracker({ publishableKey: process.env.NEXT_PUBLIC_KIT_PUBLISHABLE_KEY });
+
+tracker.jobBoardViewed();                // jobs list page
+tracker.jobViewed(job.id);               // job detail page
+tracker.applicationStarted(job.id);      // first interaction with the apply form (deduped per job)
+tracker.applicationSubmitted(job.id);    // after `apply` resolved
+tracker.talentPoolJoined();              // after `joinTalentPool` resolved
+```
+
+Events are batched (1 s window, or immediately at 20) and flushed with
+`fetch(…, { keepalive: true })` when the tab is hidden or the page unloads.
+Nothing throws: outside a browser, without a key, or with `enabled: false` the
+tracker is a no-op, and network errors, non-2xx responses and per-event
+rejections (e.g. `unknown_job` for a mistyped token) go to `onError`.
+Publishable (`pk_…`) keys only: visitor identity and geo are read from the
+browser request, so a server relay would count every visitor as your server. A
+secret key throws at construction.
+
+New exports: `createTracker`, `KitTracker`, `TrackerOptions`, `TrackEvent`,
+`TrackEventName`. No existing API changed.
+
+**Requires the matching Kit server release** — the endpoint 404s without it
+(the tracker reports that via `onError` and never breaks the page).
+
+### Upgrade guide
+
+1. `npm i @startupkit-app/jobs@^0.5.0` (on 0.x a caret does not cross minors,
+   so an existing `^0.4.0` range will not pick this up by itself).
+2. In Kit, open **Hiring → Settings → Public API Keys**. Reuse the publishable
+   key your site already calls the API with, or create one. If the key has an
+   origin allowlist, it must include your site's origin (e.g.
+   `https://careers.example.com`) — the tracker sends from the browser, so a
+   missing origin is a 403 `origin_not_allowed`.
+3. Expose the `pk_…` key to the browser bundle, e.g.
+   `NEXT_PUBLIC_KIT_PUBLISHABLE_KEY=pk_live_…`.
+4. Create one tracker module and import it everywhere:
+
+   ```ts
+   // lib/kit-tracker.ts
+   import { createTracker } from "@startupkit-app/jobs";
+
+   export const tracker = createTracker({
+     publishableKey: process.env.NEXT_PUBLIC_KIT_PUBLISHABLE_KEY,
+     onError: (error) => console.warn("Kit analytics:", error),
+   });
+   ```
+
+   It is safe at module scope: on the server (SSR, edge, build) it is a no-op.
+5. Call the five methods where the things happen:
+
+   ```tsx
+   // Jobs list page
+   useEffect(() => tracker.jobBoardViewed(), []);
+
+   // Job detail page — job.id is the public token from listJobs / getJob
+   useEffect(() => tracker.jobViewed(job.id), [job.id]);
+
+   // Apply form — first focus on any field; repeat calls are deduped
+   <form onFocus={() => tracker.applicationStarted(job.id)} onSubmit={onSubmit}>
+
+   // After a successful apply
+   const result = await kit.apply(job.id, input, { turnstileToken });
+   tracker.applicationSubmitted(job.id);
+
+   // After a successful talent-pool signup
+   await kit.joinTalentPool(input, { turnstileToken });
+   tracker.talentPoolJoined();
+   ```
+
+   Using a consent manager? Pass `enabled: consent.analytics` and recreate the
+   tracker when it changes.
+6. Verify: open a job page on your site. DevTools → Network shows
+   `POST /api/public/v1/events` → `202` within a second; Kit → **Hiring →
+   Analytics** shows the view within a minute. A `401`, `403` or `404` lands in
+   `onError` with the code.
+
+Not breaking: no existing function, type or error changed; the tracker is
+additive and tree-shakes away if unused.
+
+### Prompt for your AI coding agent
+
+````text
+Upgrade this job site to @startupkit-app/jobs ^0.5.0 and wire up Kit's browser analytics tracker.
+
+1. Run `npm i @startupkit-app/jobs@^0.5.0` (or the equivalent for this repo's package manager) and confirm package.json now has a range that includes 0.5.0.
+2. Find how this site already reads its Kit publishable key (pk_…) for the browser (an env var such as NEXT_PUBLIC_KIT_PUBLISHABLE_KEY, or a config file). Reuse it. Never use a secret key (sk_…) in browser code — createTracker throws on one.
+3. Create ONE tracker module (e.g. lib/kit-tracker.ts) that exports `tracker = createTracker({ publishableKey, onError: (error) => console.warn("Kit analytics:", error) })`. It is safe at module scope: without a key, or on the server, it is a no-op, so it must not be wrapped in guards or try/catch.
+4. Call the five methods at exactly these places, using `job.id` (the public token returned by listJobs/getJob) for the job argument:
+   - `tracker.jobBoardViewed()` once when the jobs list page renders in the browser (e.g. useEffect with []).
+   - `tracker.jobViewed(job.id)` once when a job detail page renders in the browser (e.g. useEffect keyed on job.id).
+   - `tracker.applicationStarted(job.id)` on the first interaction with the apply form (onFocus on the form element is enough; the tracker dedupes per job).
+   - `tracker.applicationSubmitted(job.id)` immediately after `kit.apply(...)` resolves successfully, never on failure.
+   - `tracker.talentPoolJoined()` immediately after `kit.joinTalentPool(...)` resolves successfully, never on failure.
+5. If the site has a cookie/consent manager, pass `enabled` from its analytics consent state instead of gating the calls yourself.
+6. Do not change any existing API calls; nothing else in the SDK changed.
+7. Verify: run the site, open a job page, and confirm in DevTools → Network a `POST /api/public/v1/events` returning 202. If it returns 401/403, the key or its allowed origins are wrong in Kit (Hiring → Settings → Public API Keys); if 404, the Kit server is not on a release that has the endpoint yet — the page still works either way.
+````
