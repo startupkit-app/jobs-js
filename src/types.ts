@@ -285,6 +285,6 @@ export interface ClientOptions {
   publishableKey?: string;
   /** Secret key (`sk_…`) — server-side only. Never ship it to a browser. */
   secretKey?: string;
-  /** API origin. Defaults to `https://app.startupkit.app`. */
+  /** API origin. Defaults to `https://app.startupkit.app`; blank counts as unset. */
   baseUrl?: string;
 }

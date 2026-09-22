@@ -161,6 +161,17 @@ describe("tracking", () => {
     expect(calls[0]!.url.toString()).toBe("http://localhost:3000/api/public/v1/events");
   });
 
+  it.each(["", "   "])("falls back to the default base URL when baseUrl is %j", async (baseUrl) => {
+    stubBrowser();
+    const { calls } = stubFetch(() => accepted(1));
+
+    const tracker = createTracker({ publishableKey: "pk_test", baseUrl });
+    tracker.jobBoardViewed();
+    await tracker.flush();
+
+    expect(calls[0]!.url.toString()).toBe(`${DEFAULT_BASE_URL}/api/public/v1/events`);
+  });
+
   it("batches events within the flush interval", async () => {
     stubBrowser();
     const { calls } = stubFetch(() => accepted(2));
@@ -337,6 +348,21 @@ describe("failures", () => {
     tracker.jobViewed("tok_1");
 
     await expect(tracker.flush()).resolves.toBeUndefined();
+  });
+
+  it("reports an unparseable baseUrl to onError and becomes a no-op instead of throwing", async () => {
+    stubBrowser();
+    const { calls } = stubFetch(() => accepted(1));
+    const onError = vi.fn();
+
+    const tracker = createTracker({ publishableKey: "pk_test", baseUrl: "not a url", onError });
+    tracker.jobViewed("tok_1");
+    await tracker.flush();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]![0]).toBeInstanceOf(Error);
+    expect((onError.mock.calls[0]![0] as Error).message).toMatch(/not a url/);
+    expect(calls).toHaveLength(0);
   });
 
   it("survives an onError that throws", async () => {

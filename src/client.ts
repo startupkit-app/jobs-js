@@ -23,6 +23,11 @@ import type {
 
 export const DEFAULT_BASE_URL = "https://app.startupkit.app";
 
+// A blank env var (copied from an empty `.env.example` line) means "not set".
+export function resolveBaseUrl(baseUrl: string | undefined): string {
+  return baseUrl?.trim() || DEFAULT_BASE_URL;
+}
+
 /** Internal HTTP transport shared by the resource modules. */
 export interface Http {
   request<T>(
@@ -156,7 +161,7 @@ function createHttp(baseUrl: string, apiKey: string | undefined): Http {
  * throws immediately.
  */
 export function createClient(options: ClientOptions = {}): KitJobsClient {
-  const { publishableKey, secretKey, baseUrl = DEFAULT_BASE_URL } = options;
+  const { publishableKey, secretKey, baseUrl } = options;
 
   // Always-wrong config/security errors are eager. A *missing* key is an
   // environmental condition (e.g. an env var not yet set at build time), so it
@@ -175,7 +180,7 @@ export function createClient(options: ClientOptions = {}): KitJobsClient {
   }
 
   const apiKey = secretKey ?? publishableKey;
-  const http = createHttp(baseUrl, apiKey);
+  const http = createHttp(resolveBaseUrl(baseUrl), apiKey);
 
   return {
     listJobs: (params, options) => listJobs(http, params, options),
