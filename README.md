@@ -215,14 +215,22 @@ does it: five typed events, batched and posted straight from the visitor's
 browser, recorded by Kit as the same events the hosted portal writes.
 
 ```ts
+// lib/kit-tracker.ts
 import { createTracker } from "@startupkit-app/jobs";
 
-// One per site. Safe at module scope: on the server, or without a key, it is a no-op.
+// One per site. Safe at module scope: on the server it is a no-op.
 export const tracker = createTracker({
-  publishableKey: process.env.NEXT_PUBLIC_KIT_PUBLISHABLE_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_STARTUPKIT_PUBLISHABLE_KEY,
   onError: (error) => console.warn("Kit analytics:", error),
 });
 ```
+
+The key is a **publishable** `pk_…` key (Kit → Hiring → Career Portal → Public
+API Keys). A site that only talks to Kit from the server usually has just a
+secret `sk_…` key, so create or copy a `pk_…` key into a new variable;
+`NEXT_PUBLIC_STARTUPKIT_PUBLISHABLE_KEY` is the name the official Next.js
+template uses. `NEXT_PUBLIC_*` variables are inlined at build time: after
+adding it, redeploy.
 
 Then, with `job.id` being the public token from `listJobs` / `getJob`:
 
@@ -230,27 +238,59 @@ Then, with `job.id` being the public token from `listJobs` / `getJob`:
 | --- | --- |
 | `tracker.jobBoardViewed()` | jobs list page rendered |
 | `tracker.jobViewed(job.id)` | job detail page rendered |
-| `tracker.applicationStarted(job.id)` | first focus on the apply form (deduped per job) |
+| `tracker.applicationStarted(job.id)` | first real interaction with the apply form (deduped per job) |
 | `tracker.applicationSubmitted(job.id)` | after `apply` resolved |
 | `tracker.talentPoolJoined()` | after `joinTalentPool` resolved |
 
-Next.js / React:
+Next.js / React (client components):
 
 ```tsx
+"use client";
+import { useEffect, useRef } from "react";
 import { tracker } from "@/lib/kit-tracker";
 
-// app/jobs/page.tsx
+// Jobs list page
 useEffect(() => tracker.jobBoardViewed(), []);
 
-// app/jobs/[id]/page.tsx
+// Job detail page
 useEffect(() => tracker.jobViewed(job.id), [job.id]);
 
-<form onFocus={() => tracker.applicationStarted(job.id)} onSubmit={onSubmit}>
+// Apply form
+const autofocused = useRef<HTMLInputElement>(null);
 
-async function onSubmit() {
-  const result = await kit.apply(job.id, input, { turnstileToken });
-  tracker.applicationSubmitted(job.id);
-}
+<form
+  onFocus={(e) => {
+    if (e.target !== autofocused.current) tracker.applicationStarted(job.id);
+  }}
+  onInput={() => tracker.applicationStarted(job.id)}
+  action={formAction}
+>
+  <input ref={autofocused} name="name" autoFocus />
+  …
+</form>
+```
+
+`onFocus` alone is not enough when a field autofocuses: the browser focuses it
+on every page load, so every visit would count as a start. Skip focus on that
+field and let `onInput` catch someone typing into it. No autofocused field?
+Drop the ref; the two handlers stay the same.
+
+Submit and join events fire only on success. With a Server Action, fire them
+from a client effect on the action's result:
+
+```tsx
+const [state, formAction] = useActionState(applyAction, null);
+
+useEffect(() => {
+  if (state?.ok) tracker.applicationSubmitted(job.id);
+}, [state, job.id]);
+```
+
+With a client-side call, fire right after it resolves:
+
+```ts
+await kit.apply(job.id, input, { turnstileToken });
+tracker.applicationSubmitted(job.id);
 ```
 
 Plain HTML:
@@ -261,26 +301,32 @@ Plain HTML:
 
   const jobId = new URLSearchParams(location.search).get("job");
   const tracker = createTracker({ publishableKey: "pk_live_…" });
+  const form = document.querySelector("form");
 
   tracker.jobViewed(jobId);
-  document.querySelector("form").addEventListener("focusin", () =>
-    tracker.applicationStarted(jobId)
-  );
+  form.addEventListener("focusin", (event) => {
+    if (!event.target.autofocus) tracker.applicationStarted(jobId);
+  });
+  form.addEventListener("input", () => tracker.applicationStarted(jobId));
 </script>
 ```
 
-Three things to know:
+Things to know:
 
 - **Publishable keys only.** Visitor identity (masked IP + user agent) and geo
   are read from the browser's request, so relaying events through your server
-  would count every visitor as your server. Passing an `sk_…` key throws.
-- **Allowed origins.** If the key has an origin allowlist (Hiring → Settings →
-  Public API Keys), your site's origin must be on it; otherwise every batch is a
-  403 `origin_not_allowed`. Attribution (landing page, referring domain, UTM) is
-  anchored on the request Origin, so events for a different host are ignored.
-- **Nothing throws.** Tracking never breaks the page. Outside a browser,
-  without a key, or with `enabled: false` (wire it to your consent manager) the
-  tracker is a no-op. Network errors, non-2xx responses, and per-event
+  would count every visitor as your server. Passing an `sk_…` key throws; that
+  is the only thing `createTracker` throws on.
+- **Allowed origins.** If the key has an origin allowlist (Hiring → Career
+  Portal → Public API Keys), your site's origin must be on it; otherwise every
+  batch is a 403 `origin_not_allowed`. Attribution (landing page, referring
+  domain, UTM) is anchored on the request Origin, so events for a different host
+  are ignored.
+- **Tracking never breaks the page.** Outside a browser or with
+  `enabled: false` (wire it to your consent manager) the tracker is a silent
+  no-op. Without a key it is a no-op that logs one `console.warn`. A blank
+  `baseUrl` falls back to the default; an unparseable one goes to `onError` and
+  the tracker becomes a no-op. Network errors, non-2xx responses, and per-event
   rejections such as `unknown_job` for a mistyped token go to `onError`.
 
 Events are batched for `flushInterval` ms (default 1000) or until 20 are

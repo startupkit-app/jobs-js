@@ -1,4 +1,4 @@
-import { DEFAULT_BASE_URL, toApiError } from "./client";
+import { resolveBaseUrl, toApiError } from "./client";
 import { KitNetworkError } from "./errors";
 import { isBrowser } from "./internal/env";
 
@@ -20,7 +20,7 @@ export type TrackEvent =
 export interface TrackerOptions {
   /** Publishable key (`pk_…`) only — events must come straight from the visitor's browser. */
   publishableKey: string | undefined;
-  /** Defaults to `DEFAULT_BASE_URL`. */
+  /** Defaults to `DEFAULT_BASE_URL`; blank counts as unset. */
   baseUrl?: string;
   /** `false` turns the tracker into a no-op, e.g. until a consent manager says yes. Default `true`. */
   enabled?: boolean;
@@ -78,7 +78,7 @@ function noopTracker(): KitTracker {
 export function createTracker(options: TrackerOptions): KitTracker {
   const {
     publishableKey,
-    baseUrl = DEFAULT_BASE_URL,
+    baseUrl,
     enabled = true,
     flushInterval = 1000,
     onError,
@@ -99,7 +99,19 @@ export function createTracker(options: TrackerOptions): KitTracker {
     return noopTracker();
   }
 
-  const endpoint = new URL("/api/public/v1/events", baseUrl).toString();
+  let endpoint: string;
+  try {
+    endpoint = new URL("/api/public/v1/events", resolveBaseUrl(baseUrl)).toString();
+  } catch (cause) {
+    report(
+      new Error(
+        `@startupkit-app/jobs: createTracker got an invalid baseUrl "${baseUrl}" — analytics are disabled.`,
+        { cause }
+      )
+    );
+    return noopTracker();
+  }
+
   const queue: QueuedEvent[] = [];
   const pending = new Set<Promise<void>>();
   const started = new Set<string>();

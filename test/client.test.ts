@@ -66,6 +66,15 @@ describe("createClient", () => {
     );
   });
 
+  it.each(["", "   "])("falls back to the default base URL when baseUrl is %j", async (baseUrl) => {
+    const { calls } = stubFetch(() => jsonResponse(emptyPage));
+    const client = createClient({ publishableKey: "pk_test", baseUrl });
+
+    await client.listJobs();
+
+    expect(calls[0]!.url.origin).toBe(DEFAULT_BASE_URL);
+  });
+
   it("wraps fetch failures in KitNetworkError with the cause attached", async () => {
     const boom = new TypeError("fetch failed");
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(boom)));

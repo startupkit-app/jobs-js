@@ -52,8 +52,11 @@
     else status.textContent = "This job is no longer accepting applications.";
 
     // 2. First interaction with the form → "started" step of the apply funnel.
-    //    Deduped per job, so wiring it to focusin is enough.
-    form.addEventListener("focusin", () => tracker.applicationStarted(job.id));
+    //    An autofocused field gets focus on every load, so only typing into it counts.
+    form.addEventListener("focusin", (event) => {
+      if (!event.target.autofocus) tracker.applicationStarted(job.id);
+    });
+    form.addEventListener("input", () => tracker.applicationStarted(job.id));
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
