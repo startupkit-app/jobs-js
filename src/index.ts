@@ -1,6 +1,13 @@
 export { createClient, DEFAULT_BASE_URL } from "./client";
 export type { KitJobsClient } from "./client";
 export { KitApiError, KitNetworkError } from "./errors";
+export { createTracker } from "./tracker";
+export type {
+  KitTracker,
+  TrackerOptions,
+  TrackEvent,
+  TrackEventName,
+} from "./tracker";
 export type {
   ApplicationForm,
   ApplicationInput,

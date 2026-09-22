@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job analytics — @startupkit-app/jobs browser example</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
+    #status { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1 id="job-title">Loading…</h1>
+  <div id="job-description"></div>
+
+  <form id="apply-form" hidden>
+    <label>Email *<input type="email" name="email" required autofocus /></label>
+    <button type="submit">Apply</button>
+    <p id="status"></p>
+  </form>
+
+  <script type="module">
+    // In your app: import { createClient, createTracker } from "@startupkit-app/jobs";
+    import { createClient, createTracker } from "https://esm.sh/@startupkit-app/jobs@0.5";
+
+    const PUBLISHABLE_KEY = "pk_live_REPLACE_ME"; // pk_ keys are browser-safe
+    const JOB_TOKEN = new URLSearchParams(location.search).get("job") ?? "REPLACE_ME";
+
+    const kit = createClient({ publishableKey: PUBLISHABLE_KEY });
+
+    // One tracker per page. Without a key it is a harmless no-op, so the
+    // careers site keeps working even when analytics are misconfigured.
+    const tracker = createTracker({
+      publishableKey: PUBLISHABLE_KEY,
+      onError: (error) => console.warn("Kit analytics:", error),
+    });
+
+    const form = document.getElementById("apply-form");
+    const status = document.getElementById("status");
+
+    const job = await kit.getJob(JOB_TOKEN);
+    document.getElementById("job-title").textContent = job.title;
+    document.getElementById("job-description").innerHTML = job.description_html;
+
+    // 1. The job page rendered → counts as a view in Kit's analytics.
+    tracker.jobViewed(job.id);
+
+    if (job.accepting_applications) form.hidden = false;
+    else status.textContent = "This job is no longer accepting applications.";
+
+    // 2. First interaction with the form → "started" step of the apply funnel.
+    //    Deduped per job, so wiring it to focusin is enough.
+    form.addEventListener("focusin", () => tracker.applicationStarted(job.id));
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.textContent = "Submitting…";
+      const data = new FormData(form);
+
+      try {
+        const result = await kit.apply(job.id, { email: String(data.get("email")) });
+
+        // 3. Only after a successful apply → "submitted" step of the funnel.
+        tracker.applicationSubmitted(job.id);
+
+        status.textContent = `Application ${result.id} submitted. Good luck!`;
+        form.querySelector("button").disabled = true;
+      } catch (error) {
+        status.textContent = error.message ?? "Something went wrong — please try again.";
+      }
+    });
+  </script>
+</body>
+</html>
