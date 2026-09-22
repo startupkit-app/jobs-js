@@ -45,7 +45,7 @@
 
   1. `npm i @startupkit-app/jobs@^0.5.0` (on 0.x a caret does not cross minors,
      so an existing `^0.4.0` range will not pick this up by itself).
-  2. In Kit, open **Hiring → Settings → Public API Keys**. Reuse the publishable
+  2. In Kit, open **Hiring → Career Portal → Public API Keys**. Reuse the publishable
      key your site already calls the API with, or create one. If the key has an
      origin allowlist, it must include your site's origin (e.g.
      `https://careers.example.com`) — the tracker sends from the browser, so a
@@ -112,7 +112,7 @@
      - `tracker.talentPoolJoined()` immediately after `kit.joinTalentPool(...)` resolves successfully, never on failure.
   5. If the site has a cookie/consent manager, pass `enabled` from its analytics consent state instead of gating the calls yourself.
   6. Do not change any existing API calls; nothing else in the SDK changed.
-  7. Verify: run the site, open a job page, and confirm in DevTools → Network a `POST /api/public/v1/events` returning 202. If it returns 401/403, the key or its allowed origins are wrong in Kit (Hiring → Settings → Public API Keys); if 404, the Kit server is not on a release that has the endpoint yet — the page still works either way.
+  7. Verify: run the site, open a job page, and confirm in DevTools → Network a `POST /api/public/v1/events` returning 202. If it returns 401/403, the key or its allowed origins are wrong in Kit (Hiring → Career Portal → Public API Keys); if 404, the Kit server is not on a release that has the endpoint yet — the page still works either way.
   ````
 
 ## 0.4.0
