@@ -11,8 +11,14 @@ function job(id: string): Job {
     location: "Berlin",
     employment_type: "full_time",
     remote: true,
+    location_display: "Berlin, Germany · Remote (EU)",
+    city: "Berlin",
+    region: null,
+    country_code: "DE",
+    remote_regions: ["EU"],
     published_at: "2026-06-01T09:00:00Z",
     url: `https://app.startupkit.app/jobs/${id}`,
+    apply_url: `https://app.startupkit.app/jobs/${id}/apply`,
   };
 }
 
@@ -66,6 +72,16 @@ describe("listJobs", () => {
       per_page: 2,
     });
     expect(page.data[0]!.employment_type).toBe("full_time");
+    expect(page.data[0]!.location_display).toBe("Berlin, Germany · Remote (EU)");
+    expect(page.data[0]!.remote_regions).toEqual(["EU"]);
+  });
+
+  it("passes locale through as a query param", async () => {
+    const { calls } = stubFetch(() => pageResponse(["j1"], 1, 1));
+
+    await client().listJobs({ locale: "pl" });
+
+    expect(calls[0]!.url.searchParams.get("locale")).toBe("pl");
   });
 
   it("exposes hasNextPage and a working nextPage()", async () => {
@@ -172,6 +188,27 @@ describe("getJob", () => {
       amount: 250.5,
       currency: "EUR",
     });
+  });
+
+  it("passes locale as a query param and still forwards fetch options", async () => {
+    const detail = { ...job("tok1"), description_html: "", accepting_applications: true, stages: [], application_form: {} };
+    const { calls } = stubFetch(() => jsonResponse(detail));
+    const fetchMock = vi.mocked(fetch);
+
+    await client().getJob("tok1", { locale: "de", cache: "no-store" });
+
+    expect(calls[0]!.url.searchParams.get("locale")).toBe("de");
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ cache: "no-store" });
+    expect(fetchMock.mock.calls[0]![1]).not.toHaveProperty("locale");
+  });
+
+  it("sends no locale param by default", async () => {
+    const detail = { ...job("tok1"), description_html: "", accepting_applications: true, stages: [], application_form: {} };
+    const { calls } = stubFetch(() => jsonResponse(detail));
+
+    await client().getJob("tok1");
+
+    expect(calls[0]!.url.searchParams.has("locale")).toBe(false);
   });
 
   it("keeps resume.required false when the stage does not mandate a CV", async () => {

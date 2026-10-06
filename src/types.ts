@@ -21,19 +21,52 @@ export interface Salary {
   period: string;
 }
 
+/** Languages the API can label a job's place in. Unknown values fall back to `en`. */
+export type Locale = "en" | "de" | "fr" | "es" | "pl";
+
 /** A published job posting as returned by the list endpoint. */
 export interface Job {
   /** Public token identifying the job (use it with `getJob` / `apply`). */
   id: string;
   title: string;
   department: string | null;
+  /**
+   * Location exactly as the recruiter typed it — free text that may already say
+   * "Remote". Filter on it; render `location_display` instead.
+   */
   location: string | null;
   employment_type: string | null;
+  /**
+   * Whether the role can be done remotely. `location_display` already says so;
+   * do not append your own "Remote" label.
+   */
   remote: boolean;
+  /**
+   * The finished place label, each part said once: `"Poznań, Poland · Remote
+   * (Poland, EU)"`, `"Berlin"`, `"Remote"`, or `null` when the job has neither a
+   * location nor remote. Render this; never join `location` and `remote`
+   * yourself. English unless the request passed `locale`. Absent on Kit servers
+   * older than the 0.6.0 release.
+   */
+  location_display?: string | null;
+  /** City of the role's office, when known. */
+  city?: string | null;
+  /** Region (state, province) of the role's office, when known. */
+  region?: string | null;
+  /** ISO 3166-1 alpha-2 code of the role's office country (`"PL"`), when known. */
+  country_code?: string | null;
+  /**
+   * Where remote candidates can be based: ISO 3166-1 alpha-2 codes plus `"EU"`
+   * (any EU member state). Empty when the role is not remote or names no
+   * restriction.
+   */
+  remote_regions?: string[];
   /** ISO 8601 timestamp, or null. */
   published_at: string | null;
   /** Canonical hosted job page URL, or null. */
   url: string | null;
+  /** Hosted application form URL, or null when the job has no public page. */
+  apply_url: string | null;
   salary?: Salary;
 }
 
@@ -130,6 +163,8 @@ export interface ListJobsParams {
   remote?: boolean;
   page?: number;
   per_page?: number;
+  /** Language of `location_display`. Defaults to `en`. */
+  locale?: Locale;
 }
 
 /** One page of results with cursor-style helpers. */
@@ -277,6 +312,12 @@ export interface RequestOptions {
   cache?: RequestCache;
   next?: { revalidate?: number | false; tags?: string[] };
   signal?: AbortSignal;
+}
+
+/** Options for `getJob`: the fetch options plus the label language. */
+export interface GetJobOptions extends RequestOptions {
+  /** Language of `location_display`. Defaults to `en`. */
+  locale?: Locale;
 }
 
 /** Options for `createClient`. Pass exactly one of the two keys. */
