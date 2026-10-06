@@ -34,7 +34,7 @@ const kit = createClient({ secretKey: process.env.KIT_SECRET_KEY });
 // One page at a time
 const page = await kit.listJobs({ department: "Engineering", remote: true });
 for (const job of page.data) {
-  console.log(job.title, job.location, job.url);
+  console.log(job.title, job.location_display, job.url);
 }
 if (page.hasNextPage) {
   const next = await page.nextPage()!;
@@ -49,6 +49,26 @@ for await (const job of kit.allJobs()) {
 const job = await kit.getJob(page.data[0].id);
 console.log(job.description_html, job.accepting_applications);
 ```
+
+## Where the job is
+
+Render `job.location_display` and nothing else: it is the finished place label
+with each part said once (`"Poznań, Poland · Remote (Poland, EU)"`, `"Berlin"`,
+`"Remote"`, or `null` when the job has neither). `job.location` is free text
+exactly as the recruiter typed it and often already says "Remote", so joining it
+with `job.remote` prints "Remote (Poland) · Remote". Keep `location` and `remote`
+for filtering, and `city` / `region` / `country_code` / `remote_regions` for
+structured data such as Google for Jobs markup.
+
+```ts
+const page = await kit.listJobs({ locale: "pl" }); // en (default), de, fr, es, pl
+const job = await kit.getJob(page.data[0].id, { locale: "pl" });
+console.log(job.location_display); // "Poznań, Poland · Zdalnie (Polska, UE)"
+```
+
+`locale` only translates the remote part of `location_display`; the typed
+location stays as typed. Older Kit servers omit `location_display` entirely, so
+fall back to `job.location` if you must support one.
 
 ## Quickstart (browser, `pk_…` + Turnstile)
 
@@ -373,9 +393,9 @@ Error codes: `invalid_key` (401), `origin_not_allowed` (403), `not_found` (404),
 ```ts
 createClient({ publishableKey?, secretKey?, baseUrl? }): KitJobsClient
 
-client.listJobs(params?): Promise<Page<Job>>
-client.allJobs(params?): AsyncIterable<Job>
-client.getJob(publicToken): Promise<JobDetail>
+client.listJobs(params?, options?): Promise<Page<Job>>
+client.allJobs(params?, options?): AsyncIterable<Job>
+client.getJob(publicToken, options?): Promise<JobDetail>
 client.createUpload(meta): Promise<UploadTicket>
 client.uploadFile(file, meta?): Promise<{ signed_id: string }>
 client.apply(publicToken, input, opts?): Promise<ApplicationResult>
@@ -411,7 +431,8 @@ for unpaid stages.
 
 All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
 `ApplicationResult`, `Page`, `FormField`, `Question`, `StageCompensation`,
-`KitTracker`, `TrackerOptions`, `TrackEvent`, …) are exported.
+`Locale`, `GetJobOptions`, `KitTracker`, `TrackerOptions`, `TrackEvent`, …) are
+exported.
 
 ## Examples
 

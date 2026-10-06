@@ -1,5 +1,6 @@
 import type { Http } from "../client";
 import type {
+  GetJobOptions,
   Job,
   JobDetail,
   ListJobsParams,
@@ -56,11 +57,12 @@ export async function* allJobs(
 export function getJob(
   http: Http,
   publicToken: string,
-  options?: RequestOptions
+  options: GetJobOptions = {}
 ): Promise<JobDetail> {
+  const { locale, ...request } = options;
   return http.request<JobDetail>(
     "GET",
     `/api/public/v1/jobs/${encodeURIComponent(publicToken)}`,
-    { request: options }
+    { query: { locale }, request }
   );
 }

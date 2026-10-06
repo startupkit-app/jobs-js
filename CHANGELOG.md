@@ -1,5 +1,134 @@
 # @startupkit-app/jobs
 
+## 0.6.0
+
+### Minor Changes
+
+- Add `location_display` — the finished place label — plus structured location
+  fields, a `locale` parameter, and the long-missing `apply_url` on every job.
+
+  Job boards built on this SDK printed "Remote (Poland) · Remote": the API gave
+  only `location` (free text typed by the recruiter, which often already says
+  "Remote") and `remote` (a boolean), and every consumer joined the two. The
+  server now does that once, correctly, and the SDK types say so:
+
+  ```ts
+  const page = await kit.listJobs({ locale: "pl" }); // en (default), de, fr, es, pl
+  for (const job of page.data) {
+    console.log(job.location_display); // "Poznań, Poland · Zdalnie (Polska, UE)"
+  }
+
+  const job = await kit.getJob(token, { locale: "en" });
+  job.location_display; // "Berlin · Remote (Germany, EU)", or null
+  job.city;             // "Berlin"
+  job.region;           // null
+  job.country_code;     // "DE"
+  job.remote_regions;   // ["DE", "EU"]
+  ```
+
+  New fields on `Job` (and therefore `JobDetail`), all optional so older servers
+  stay compatible:
+
+  - `location_display: string | null` — each part said once:
+    `"Poznań, Poland · Remote (Poland, EU)"`, `"Berlin"`, `"Remote"`, or `null`
+    when the job has neither a location nor remote. **Render this; never join
+    `location` and `remote` yourself.** `location` stays free text exactly as
+    typed and `remote` stays a boolean — both for filtering.
+  - `city`, `region`, `country_code` (ISO 3166-1 alpha-2) — the role's office,
+    when known.
+  - `remote_regions: string[]` — where remote candidates can be based: ISO
+    3166-1 alpha-2 codes plus `"EU"` (any EU member state). Empty when the role
+    is not remote or names no restriction.
+
+  `apply_url: string | null` is now declared on `Job`. The API has always
+  emitted it (the hosted application form URL, `null` when the job has no public
+  page); the type never did. It is non-optional because it is always on the
+  wire, which can surface a type error in code that builds a `Job` object
+  literal (test fixtures, mocks) — add the key.
+
+  `locale` (`"en" | "de" | "fr" | "es" | "pl"`) is accepted by `listJobs`,
+  `allJobs` (as a param next to the filters) and `getJob` (in its options
+  object next to `cache` / `next` / `signal`). It translates the remote part of
+  `location_display` and nothing else; the typed location stays as typed. An
+  unknown value falls back to English.
+
+  New exported types: `Locale`, `GetJobOptions`. No existing function signature
+  changed: `getJob(token, { cache, next, signal })` still works, the options
+  object simply accepts `locale` too.
+
+  **Requires the matching Kit server release** — older servers omit the new
+  fields (`location_display` is `undefined`, not `null`) and ignore `locale`.
+
+  ### Upgrade guide
+
+  1. `npm i @startupkit-app/jobs@^0.6.0` (on 0.x a caret does not cross minors,
+     so an existing `^0.5.0` range will not pick this up by itself).
+  2. Find every place that renders where a job is. Typical shapes to look for:
+     `job.location` printed next to a "Remote" badge, `job.remote && "Remote"`,
+     `[job.location, job.remote && "Remote"].filter(Boolean).join(" · ")`,
+     `${job.location} · Remote`. Replace each with `job.location_display`:
+
+     ```tsx
+     // Before — prints "Remote (Poland) · Remote"
+     <span>{job.location}</span>
+     {job.remote && <span className="pill">Remote</span>}
+
+     // After
+     <span>{job.location_display}</span>
+     ```
+
+     ```ts
+     // Before
+     const where = [job.location, job.remote && "Remote"].filter(Boolean).join(" · ");
+
+     // After
+     const where = job.location_display;
+     ```
+
+     `location_display` is `null` when the job has neither a location nor remote;
+     render nothing (or your usual placeholder) in that case. Must keep working
+     against a Kit server that has not shipped this yet? Fall back once:
+     `job.location_display ?? job.location`. Do not fall back to a hand-built
+     join.
+  3. Optional — localized labels: pass `locale` matching the page language,
+     `kit.listJobs({ locale })` and `kit.getJob(token, { locale })`. Skip this on
+     an English-only site; English is the default.
+  4. Optional — structured data (Google for Jobs `JobPosting`): build
+     `jobLocation.address` from `city` → `addressLocality`, `region` →
+     `addressRegion`, `country_code` → `addressCountry` when present, and emit
+     `applicantLocationRequirements` from `remote_regions` next to
+     `jobLocationType: "TELECOMMUTE"`. Expand `"EU"` to the member states
+     yourself; the API sends the literal `"EU"`.
+  5. Optional — if your site links to Kit's hosted application form, it can now
+     read `job.apply_url` instead of appending `/apply` to `job.url`.
+  6. Leave the location filter and any "Remote only" toggle alone: they still
+     work on `location` and `remote`, which did not change.
+  7. If you build `Job` objects in tests or mocks, add `apply_url` (a string or
+     `null`); the new location fields are optional and can be omitted.
+  8. Verify: run the site against a Kit server on the matching release and open
+     a job that is both in a city and remote. The page shows the place once,
+     e.g. "Poznań, Poland · Remote (Poland, EU)", with no separate "Remote"
+     badge or suffix. `npm run typecheck` (or your `tsc` equivalent) passes.
+
+  Not breaking at runtime: nothing the SDK sends or parses changed shape for
+  existing calls. Type-level only: `apply_url` became a required key on `Job`.
+
+  ### Prompt for your AI coding agent
+
+  ````text
+  Upgrade this job site to @startupkit-app/jobs ^0.6.0 and render job locations with the new `location_display` field instead of joining `location` and `remote` by hand.
+
+  1. Run `npm i @startupkit-app/jobs@^0.6.0` (or this repo's package-manager equivalent) and confirm the lockfile resolves 0.6.0 or later.
+  2. Background: every job from listJobs/allJobs/getJob now has `location_display: string | null` — a finished place label with each part said once, e.g. "Poznań, Poland · Remote (Poland, EU)", "Berlin", "Remote", or null when the job has neither a location nor remote. `location` is still the recruiter's free text (which often already contains "Remote") and `remote` is still a boolean; they are for filtering, not display. Joining them prints "Remote (Poland) · Remote".
+  3. Find every place that renders where a job is: list cards, the job detail header, the apply page header, meta descriptions, email or share text. Look for `job.location` rendered next to a Remote badge/pill/suffix, `job.remote && "Remote"`, `[job.location, job.remote && "Remote"].filter(Boolean).join(...)`, or template strings like `${job.location} · Remote`. Replace each with `job.location_display` and delete the separate Remote badge/suffix next to it. Treat null as "no place to show" (render nothing or the existing placeholder). If the site must keep working against a Kit server that has not shipped the field yet, use `job.location_display ?? job.location` as the only fallback — never a rebuilt join. If several places do this, one small helper is fine; do not add any text-matching logic that tries to dedupe "Remote" yourself.
+  4. If the site is localized, pass the page language as `locale` ("en" | "de" | "fr" | "es" | "pl"): `kit.listJobs({ ...filters, locale })`, `kit.allJobs({ ...filters, locale })`, `kit.getJob(token, { ...existingFetchOptions, locale })`. Skip this on an English-only site.
+  5. If the site emits schema.org JobPosting JSON-LD: when `job.city` / `job.region` / `job.country_code` are present, build `jobLocation.address` from them (addressLocality / addressRegion / addressCountry); when `job.remote_regions` is non-empty, emit `applicantLocationRequirements` as `{ "@type": "Country", "name": ... }` entries alongside `jobLocationType: "TELECOMMUTE"`, expanding the literal "EU" to the 27 member states and de-duplicating. Keep the existing output for jobs that lack these fields.
+  6. If the site links to Kit's hosted application form, prefer `job.apply_url` (now typed; may be null) over building the URL from `job.url`.
+  7. Do not change the location filter, the location facets, or any "Remote only" checkbox: they use `location` and `remote`, which are unchanged.
+  8. If tests or mocks build Job objects, add `apply_url` (string or null) to them; the new location fields are optional.
+  9. Run the repo's lint, typecheck and build. Then verify in the browser against a Kit server on the matching release: open a job that is both in a city and remote and confirm the place appears exactly once (e.g. "Poznań, Poland · Remote (Poland, EU)") with no extra Remote badge; open a job with no location and confirm nothing broken renders where the place would be.
+  ````
+
 ## 0.5.1
 
 ### Patch Changes

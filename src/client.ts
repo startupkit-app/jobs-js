@@ -9,6 +9,7 @@ import type {
   ApplicationResult,
   ClientOptions,
   ErrorEnvelope,
+  GetJobOptions,
   Job,
   JobDetail,
   ListJobsParams,
@@ -48,7 +49,7 @@ export interface KitJobsClient {
   /** Iterates every published job across all pages. */
   allJobs(params?: ListJobsParams, options?: RequestOptions): AsyncIterable<Job>;
   /** Fetches full job detail (description, stages, application form). */
-  getJob(publicToken: string, options?: RequestOptions): Promise<JobDetail>;
+  getJob(publicToken: string, options?: GetJobOptions): Promise<JobDetail>;
   /** Low-level: registers a blob and returns direct-upload instructions. */
   createUpload(meta: UploadMeta): Promise<UploadTicket>;
   /**
