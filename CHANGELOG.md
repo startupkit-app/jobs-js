@@ -1,5 +1,90 @@
 # @startupkit-app/jobs
 
+## 0.7.0
+
+### Minor Changes
+
+- Add optional questions after apply: `apply` returns `insights` when the
+  employer asks some, and the new `answerInsight` saves each answer.
+
+  Kit lets an employer mark a few candidate details ("Which city are you based
+  in?") as optional questions asked once someone has applied. Kit's hosted
+  portal shows them on its receipt page; a site built on this SDK now can too:
+
+  ```ts
+  const result = await kit.apply(job.id, input);
+
+  if (result.insights) {
+    const { token, expires_at, questions } = result.insights;
+    // Render questions after the "application sent" message, then per answer:
+    const { answer, remaining } = await kit.answerInsight({ token, id: questions[0]!.id, value: "Kraków" });
+  }
+  ```
+
+  - `ApplicationResult.insights?: ApplicationInsights`:
+    `{ token, expires_at, questions: InsightQuestion[] }`. Present only when the
+    employer asked questions and they are still open; never on a 409
+    `already_applied`.
+  - `InsightQuestion`: an opaque `id` (`mfd_…`), `type` (`text`, `textarea`, `number`, `boolean`,
+    `select`, `date`, `url`, `tags`, `rating`), `prompt`, and per type
+    `placeholder`, `choices`, `max`, `max_length`, `max_tags`. `answer` holds the
+    saved answer once there is one.
+  - `answerInsight({ token, id, value })` posts to
+    `POST /api/public/v1/insight_answers` and returns
+    `{ answer: { id, value, answered_at }, remaining }`. `value` is a string,
+    number, boolean or string array, depending on the type. Both `pk_…` and
+    `sk_…` keys work; there is no Turnstile, because the token is the capability.
+  - A rejected answer (422) throws `KitInsightError`, a `KitApiError` subclass
+    whose `code` is an `InsightErrorCode` (`blank`, `too_long`, `not_a_number`,
+    `out_of_range`, `not_a_date`, `not_a_choice`, `not_boolean`, `invalid_url`,
+    `too_many_tags`, `invalid`, `not_askable`, `insights_closed`) and whose `id`
+    names the question. `KitApiError` also gains an optional `id`.
+
+  **The token is a bearer capability**: anyone holding it can answer for the
+  candidate until `expires_at`. Keep it on your server or in memory; never put it
+  in a URL.
+
+  New exports: `KitInsightError`, `ApplicationInsights`, `InsightQuestion`,
+  `InsightQuestionType`, `InsightAnswerInput`, `InsightAnswerResult`,
+  `InsightAnswerValue`, `InsightErrorCode`. No existing signature changed.
+
+  **Requires the matching Kit server release**: older servers never return
+  `insights`, and `answerInsight` 404s against them.
+
+  ### Upgrade guide
+
+  1. `npm i @startupkit-app/jobs@^0.7.0` (on 0.x a caret does not cross minors,
+     so an existing `^0.6.0` range will not pick this up by itself).
+  2. Where `apply` resolves, keep `result.insights` in memory (component state,
+     Server Action state). Never put `insights.token` in a URL, query string or
+     log line.
+  3. After the success message, render `insights.questions` in order, one input
+     per `type` (see the README table). Each question is optional: offer Skip,
+     and do not send a request for a skipped question.
+  4. Save each answer with `kit.answerInsight({ token, id, value })`. On
+     `KitInsightError`, show `error.message` next to the question named by
+     `error.id`; on `not_askable` drop that question; on `insights_closed` hide
+     the questions.
+  5. Verify: on a job whose employer asks questions, apply, answer one, and check
+     it appears on the application in Kit with the "Candidate" source.
+
+  Not breaking: `insights` is optional and `answerInsight` is new.
+
+  ### Prompt for your AI coding agent
+
+  ````text
+  Upgrade this job site to @startupkit-app/jobs ^0.7.0 and show Kit's optional questions after apply.
+
+  1. Run `npm i @startupkit-app/jobs@^0.7.0` (or this repo's package-manager equivalent) and confirm the lockfile resolves 0.7.0 or later.
+  2. Background: `kit.apply(...)` now resolves with an optional `insights: { token, expires_at, questions }`. It is present only when the employer asks questions and they are still open, and never on a 409 already_applied. `insights.token` is a bearer capability: anyone holding it can answer for the candidate until `expires_at`.
+  3. Where the apply call resolves (a Server Action if the site applies server-side with an sk_ key; a client handler if it applies from the browser with a pk_ key), return or keep `result.insights` in memory only: component state or action state. Never put the token in a URL, query string, cookie, localStorage or a log line.
+  4. On the success screen, below the existing confirmation, render `insights.questions` in order under a heading such as "A few quick questions" and a line saying they are optional. One input per `question.type`: text/textarea (respect `max_length`), number, boolean (yes/no), select (one of `choices`), date (send "YYYY-MM-DD"), url, tags (an array of strings, at most `max_tags`), rating (1 to `max`). Show `question.prompt` as written and `question.placeholder` when present. Prefill from `question.answer` when present.
+  5. Each question has Skip. Skipping sends nothing. Saving calls `kit.answerInsight({ token, id: question.id, value })` from the same place the site calls Kit (server action with the sk_ key, or the browser with the pk_ key). On success use the returned `remaining` to show a done state when it reaches 0.
+  6. Catch `KitInsightError` (import it from @startupkit-app/jobs): show `error.message` next to the question whose `id` is `error.id` and keep the typed value; on `error.code === "not_askable"` drop that question; on `"insights_closed"` hide the questions and keep the success message. Let any other error surface the way the site already handles API errors.
+  7. Do not change the apply form or any other API call.
+  8. Verify against a Kit server on the matching release with a job whose employer asks questions: apply, answer one question, skip another, and confirm the answer shows on the application in Kit. Then apply on a job with no questions and confirm the success screen is unchanged.
+  ````
+
 ## 0.6.0
 
 ### Minor Changes

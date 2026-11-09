@@ -220,7 +220,101 @@ export interface ApplicationResult {
   job: string;
   /** ISO 8601 timestamp. */
   submitted_at: string;
+  /**
+   * Optional questions the candidate can answer after applying. Present only
+   * when the employer asked some and they are still open.
+   */
+  insights?: ApplicationInsights;
 }
+
+export type InsightQuestionType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "boolean"
+  | "select"
+  | "date"
+  | "url"
+  | "tags"
+  | "rating";
+
+/**
+ * An insight answer: a string (`text`, `textarea`, `select`, `url`, and `date`
+ * as `YYYY-MM-DD`), a number (`number`, `rating`), a boolean, or a list of tags.
+ */
+export type InsightAnswerValue = string | number | boolean | string[];
+
+/** One optional question the employer asks after apply. */
+export interface InsightQuestion {
+  /** Opaque question id (`mfd_…`). Pass it to `answerInsight` as `id`. */
+  id: string;
+  type: InsightQuestionType;
+  /** Question text, shown as the recruiter wrote it. */
+  prompt: string;
+  /** Example input for the field. */
+  placeholder?: string | null;
+  /** Options a `select` answer must be one of. */
+  choices?: string[] | null;
+  /** Top of a `rating` scale; the scale starts at 1. */
+  max?: number | null;
+  /** Character limit for `text`, `textarea`, `url`, and each tag. */
+  max_length?: number | null;
+  /** Most tags a `tags` answer may have. */
+  max_tags?: number | null;
+  /** The candidate's saved answer. Absent until they answer. */
+  answer?: InsightAnswerValue;
+}
+
+/** Returned by `apply` when the employer asks optional questions. */
+export interface ApplicationInsights {
+  /**
+   * Bearer capability for `answerInsight`: anyone holding it can answer for the
+   * candidate until `expires_at`. Keep it server-side or in memory; never put it
+   * in a URL.
+   */
+  token: string;
+  /** ISO 8601 timestamp after which answers are refused. */
+  expires_at: string;
+  /** In the employer's order. */
+  questions: InsightQuestion[];
+}
+
+/** Payload for `answerInsight`. */
+export interface InsightAnswerInput {
+  /** `ApplicationInsights.token` from the `apply` result. */
+  token: string;
+  /** `InsightQuestion.id`. */
+  id: string;
+  value: InsightAnswerValue;
+}
+
+/** Result of a saved answer. */
+export interface InsightAnswerResult {
+  /** The answer as stored, which may be normalized (trimmed, a bare host given `https://`). */
+  answer: {
+    id: string;
+    value: InsightAnswerValue;
+    /** ISO 8601 timestamp. */
+    answered_at: string;
+  };
+  /** Questions still unanswered. */
+  remaining: number;
+}
+
+/** Codes a rejected `answerInsight` call carries on `KitInsightError#code`. */
+export type InsightErrorCode =
+  | "blank"
+  | "too_long"
+  | "not_a_number"
+  | "out_of_range"
+  | "not_a_date"
+  | "not_a_choice"
+  | "not_boolean"
+  | "invalid_url"
+  | "too_many_tags"
+  | "invalid"
+  | "not_askable"
+  | "insights_closed";
 
 /** Consent terms a talent-pool signup must show and record. */
 export interface TalentPoolConsent {
@@ -300,6 +394,7 @@ export interface ErrorEnvelope {
     code: string;
     message: string;
     fields?: Record<string, string[]>;
+    id?: string | null;
   };
 }
 

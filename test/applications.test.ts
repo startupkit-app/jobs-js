@@ -1,14 +1,36 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createClient, KitApiError } from "../src/index";
+import { createClient, KitApiError, KitInsightError } from "../src/index";
 import { jsonResponse, stubFetch } from "./helpers";
 
 const client = () => createClient({ publishableKey: "pk_test" });
+const serverClient = () => createClient({ secretKey: "sk_test" });
 
 const submitted = {
   id: "app_123",
   status: "submitted",
   job: "tok_abc",
   submitted_at: "2026-06-11T12:00:00Z",
+};
+
+const insights = {
+  token: "insight-token-1",
+  expires_at: "2026-11-23T10:00:00Z",
+  questions: [
+    { id: "mfd_3k9QpL2x", type: "text", prompt: "Which city are you based in?", max_length: 255 },
+    {
+      id: "mfd_8Hn2vRt1",
+      type: "select",
+      prompt: "How long have you used Kotlin with Spring?",
+      choices: ["Not yet", "Side projects", "1-2 years", "3+ years"],
+      answer: "1-2 years",
+    },
+    { id: "mfd_5Yc7Mw3e", type: "tags", prompt: "Which tools do you use daily?", max_length: 50, max_tags: 10 },
+  ],
+};
+
+const saved = {
+  answer: { id: "mfd_3k9QpL2x", value: "Kraków", answered_at: "2026-11-09T10:05:00Z" },
+  remaining: 2,
 };
 
 afterEach(() => {
@@ -106,5 +128,120 @@ describe("apply", () => {
       email: ["is invalid"],
       responses: ["motivation is required"],
     });
+  });
+
+  it("returns the optional insight questions when the employer asks some", async () => {
+    stubFetch(() => jsonResponse({ ...submitted, insights }, 201));
+
+    const result = await client().apply("tok_abc", { email: "jane@example.com" });
+
+    expect(result.insights).toEqual(insights);
+    expect(result.insights?.questions[1]?.choices).toEqual([
+      "Not yet",
+      "Side projects",
+      "1-2 years",
+      "3+ years",
+    ]);
+    expect(result.insights?.questions[1]?.answer).toBe("1-2 years");
+  });
+
+  it("leaves insights undefined when the response has none", async () => {
+    stubFetch(() => jsonResponse(submitted, 201));
+
+    const result = await client().apply("tok_abc", { email: "jane@example.com" });
+
+    expect(result.insights).toBeUndefined();
+  });
+});
+
+describe("answerInsight", () => {
+  it("POSTs the token and the answer envelope to the insight answers path", async () => {
+    const { calls } = stubFetch(() => jsonResponse(saved));
+
+    const result = await serverClient().answerInsight({
+      token: "insight-token-1",
+      id: "mfd_3k9QpL2x",
+      value: "Kraków",
+    });
+
+    expect(calls[0]!.method).toBe("POST");
+    expect(calls[0]!.url.pathname).toBe("/api/public/v1/insight_answers");
+    expect(calls[0]!.headers["Authorization"]).toBe("Bearer sk_test");
+    expect(calls[0]!.rawBody).toBe(
+      '{"token":"insight-token-1","answer":{"id":"mfd_3k9QpL2x","value":"Kraków"}}'
+    );
+    expect(result).toEqual(saved);
+    expect(result.remaining).toBe(2);
+  });
+
+  it.each([[true], [42], [["Kotlin", "Spring"]]])(
+    "sends a %j value as-is",
+    async (value) => {
+      const { calls } = stubFetch(() => jsonResponse(saved));
+
+      await client().answerInsight({ token: "insight-token-1", id: "mfd_5Yc7Mw3e", value });
+
+      expect(calls[0]!.body).toEqual({
+        token: "insight-token-1",
+        answer: { id: "mfd_5Yc7Mw3e", value },
+      });
+    }
+  );
+
+  it("throws a KitInsightError carrying the code and question id on 422", async () => {
+    stubFetch(() =>
+      jsonResponse(
+        {
+          error: {
+            code: "not_a_choice",
+            message: "Pick one of the listed options.",
+            id: "mfd_8Hn2vRt1",
+          },
+        },
+        422
+      )
+    );
+
+    const error = await client()
+      .answerInsight({ token: "insight-token-1", id: "mfd_8Hn2vRt1", value: "Ages" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(KitInsightError);
+    expect(error).toBeInstanceOf(KitApiError);
+    expect((error as KitInsightError).status).toBe(422);
+    expect((error as KitInsightError).code).toBe("not_a_choice");
+    expect((error as KitInsightError).id).toBe("mfd_8Hn2vRt1");
+    expect((error as KitInsightError).message).toBe("Pick one of the listed options.");
+  });
+
+  it("maps a closed or invalid token to insights_closed", async () => {
+    stubFetch(() =>
+      jsonResponse(
+        { error: { code: "insights_closed", message: "These questions are closed.", id: null } },
+        422
+      )
+    );
+
+    const error = await client()
+      .answerInsight({ token: "expired", id: "mfd_3k9QpL2x", value: "Kraków" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(KitInsightError);
+    expect((error as KitInsightError).code).toBe("insights_closed");
+    expect((error as KitInsightError).id).toBeUndefined();
+  });
+
+  it("keeps non-422 failures as a plain KitApiError", async () => {
+    stubFetch(() =>
+      jsonResponse({ error: { code: "invalid_key", message: "Invalid API key." } }, 401)
+    );
+
+    const error = await client()
+      .answerInsight({ token: "insight-token-1", id: "mfd_3k9QpL2x", value: "Kraków" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(KitApiError);
+    expect(error).not.toBeInstanceOf(KitInsightError);
+    expect((error as KitApiError).code).toBe("invalid_key");
   });
 });
