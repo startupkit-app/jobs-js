@@ -38,12 +38,18 @@ export class KitApiError extends Error {
  * Error thrown when `answerInsight` is rejected with a 422: the answer failed
  * validation, the question is not askable, or the questions are closed
  * (`insights_closed` — the token is invalid or expired, or the application closed).
- * `id` names the question when the API reports one.
+ * `id` names the question when the API reports one. `code` may be one this
+ * version does not list, or `unknown_error` for a non-JSON body.
  */
 export class KitInsightError extends KitApiError {
-  declare readonly code: InsightErrorCode;
+  declare readonly code: InsightErrorCode | (string & {});
 
-  constructor(args: { status: number; code: InsightErrorCode; message: string; id?: string }) {
+  constructor(args: {
+    status: number;
+    code: InsightErrorCode | (string & {});
+    message: string;
+    id?: string;
+  }) {
     super(args);
     this.name = "KitInsightError";
   }

@@ -185,7 +185,8 @@ export async function answerAction(token: string, id: string, value: InsightAnsw
     return { ok: true, answer, remaining }; // remaining === 0: all answered
   } catch (error) {
     if (error instanceof KitInsightError) {
-      return { ok: false, code: error.code, id: error.id }; // "not_a_choice", "insights_closed", …
+      // code: "not_a_choice", "insights_closed", …; show message next to the question
+      return { ok: false, code: error.code, message: error.message, id: error.id };
     }
     throw error;
   }
@@ -215,12 +216,13 @@ Render each question by `type` and send `value` as:
 - `question.answer` holds the saved answer, absent until the candidate answers.
   Answering again changes it, until `expires_at`.
 - Both `pk_…` and `sk_…` keys work, and there is no Turnstile on this call: the
-  token is the capability. A token only works with a key from the same Kit
-  account.
+  token is the capability. Browser code can call `answerInsight` directly with
+  the `pk_…` key; the key's allowed origins apply (403 `origin_not_allowed`). A
+  token only works with a key from the same Kit account.
 - A 409 `already_applied` never carries `insights`.
 
 A rejected answer (422) throws `KitInsightError`, a `KitApiError` whose `code` is
-an `InsightErrorCode` and whose `id` names the question:
+usually an `InsightErrorCode` and whose `id` names the question:
 
 - `blank`, `too_long`, `not_a_number`, `out_of_range`, `not_a_date`,
   `not_a_choice`, `not_boolean`, `invalid_url`, `too_many_tags`, `invalid`: fix
@@ -228,6 +230,8 @@ an `InsightErrorCode` and whose `id` names the question:
 - `not_askable`: the employer no longer asks this question. Drop it.
 - `insights_closed`: the token is invalid or expired, or the application has
   closed. Stop showing the questions.
+- Any other code (one added after this version, or `unknown_error` for a
+  non-JSON body): treat it like `invalid` and show `error.message`.
 
 Answers are rate limited; a 429 is a plain `KitApiError`.
 

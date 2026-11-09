@@ -252,15 +252,15 @@ export interface InsightQuestion {
   /** Question text, shown as the recruiter wrote it. */
   prompt: string;
   /** Example input for the field. */
-  placeholder?: string | null;
+  placeholder?: string;
   /** Options a `select` answer must be one of. */
-  choices?: string[] | null;
+  choices?: string[];
   /** Top of a `rating` scale; the scale starts at 1. */
-  max?: number | null;
+  max?: number;
   /** Character limit for `text`, `textarea`, `url`, and each tag. */
-  max_length?: number | null;
+  max_length?: number;
   /** Most tags a `tags` answer may have. */
-  max_tags?: number | null;
+  max_tags?: number;
   /** The candidate's saved answer. Absent until they answer. */
   answer?: InsightAnswerValue;
 }
@@ -301,7 +301,7 @@ export interface InsightAnswerResult {
   remaining: number;
 }
 
-/** Codes a rejected `answerInsight` call carries on `KitInsightError#code`. */
+/** Known codes on `KitInsightError#code`. Newer servers may send others. */
 export type InsightErrorCode =
   | "blank"
   | "too_long"

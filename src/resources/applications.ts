@@ -5,7 +5,6 @@ import type {
   ApplicationResult,
   InsightAnswerInput,
   InsightAnswerResult,
-  InsightErrorCode,
 } from "../types";
 
 export function apply(
@@ -40,7 +39,7 @@ export async function answerInsight(
     if (error instanceof KitApiError && error.status === 422) {
       throw new KitInsightError({
         status: error.status,
-        code: error.code as InsightErrorCode,
+        code: error.code,
         message: error.message,
         id: error.id,
       });

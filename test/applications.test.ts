@@ -214,7 +214,7 @@ describe("answerInsight", () => {
     expect((error as KitInsightError).message).toBe("Pick one of the listed options.");
   });
 
-  it("maps a closed or invalid token to insights_closed", async () => {
+  it("leaves id undefined when the 422 sends a null id", async () => {
     stubFetch(() =>
       jsonResponse(
         { error: { code: "insights_closed", message: "These questions are closed.", id: null } },
@@ -229,6 +229,37 @@ describe("answerInsight", () => {
     expect(error).toBeInstanceOf(KitInsightError);
     expect((error as KitInsightError).code).toBe("insights_closed");
     expect((error as KitInsightError).id).toBeUndefined();
+  });
+
+  it("passes through a 422 code this SDK does not know yet", async () => {
+    stubFetch(() =>
+      jsonResponse(
+        { error: { code: "too_vague", message: "Say a bit more.", id: "mfd_3k9QpL2x" } },
+        422
+      )
+    );
+
+    const error = (await client()
+      .answerInsight({ token: "insight-token-1", id: "mfd_3k9QpL2x", value: "x" })
+      .catch((e: unknown) => e)) as KitInsightError;
+    const code: KitInsightError["code"] = "too_vague";
+
+    expect(error).toBeInstanceOf(KitInsightError);
+    expect(error.code).toBe(code);
+    expect(error.message).toBe("Say a bit more.");
+  });
+
+  it("falls back to unknown_error when a 422 body is not JSON", async () => {
+    stubFetch(() => new Response("<html>Unprocessable</html>", { status: 422 }));
+
+    const error = (await client()
+      .answerInsight({ token: "insight-token-1", id: "mfd_3k9QpL2x", value: "x" })
+      .catch((e: unknown) => e)) as KitInsightError;
+    const code: KitInsightError["code"] = "unknown_error";
+
+    expect(error).toBeInstanceOf(KitInsightError);
+    expect(error.code).toBe(code);
+    expect(error.id).toBeUndefined();
   });
 
   it("keeps non-422 failures as a plain KitApiError", async () => {

@@ -35,10 +35,12 @@
     number, boolean or string array, depending on the type. Both `pk_…` and
     `sk_…` keys work; there is no Turnstile, because the token is the capability.
   - A rejected answer (422) throws `KitInsightError`, a `KitApiError` subclass
-    whose `code` is an `InsightErrorCode` (`blank`, `too_long`, `not_a_number`,
-    `out_of_range`, `not_a_date`, `not_a_choice`, `not_boolean`, `invalid_url`,
-    `too_many_tags`, `invalid`, `not_askable`, `insights_closed`) and whose `id`
-    names the question. `KitApiError` also gains an optional `id`.
+    whose `code` is one of the known `InsightErrorCode`s (`blank`, `too_long`,
+    `not_a_number`, `out_of_range`, `not_a_date`, `not_a_choice`, `not_boolean`,
+    `invalid_url`, `too_many_tags`, `invalid`, `not_askable`, `insights_closed`)
+    or, typed as `string`, a code this version does not list yet (`unknown_error`
+    for a non-JSON body). Its `id` names the question. `KitApiError` also gains an
+    optional `id`.
 
   **The token is a bearer capability**: anyone holding it can answer for the
   candidate until `expires_at`. Keep it on your server or in memory; never put it
@@ -64,7 +66,7 @@
   4. Save each answer with `kit.answerInsight({ token, id, value })`. On
      `KitInsightError`, show `error.message` next to the question named by
      `error.id`; on `not_askable` drop that question; on `insights_closed` hide
-     the questions.
+     the questions. Treat any code you do not recognise like `invalid`.
   5. Verify: on a job whose employer asks questions, apply, answer one, and check
      it appears on the application in Kit with the "Candidate" source.
 
@@ -80,7 +82,7 @@
   3. Where the apply call resolves (a Server Action if the site applies server-side with an sk_ key; a client handler if it applies from the browser with a pk_ key), return or keep `result.insights` in memory only: component state or action state. Never put the token in a URL, query string, cookie, localStorage or a log line.
   4. On the success screen, below the existing confirmation, render `insights.questions` in order under a heading such as "A few quick questions" and a line saying they are optional. One input per `question.type`: text/textarea (respect `max_length`), number, boolean (yes/no), select (one of `choices`), date (send "YYYY-MM-DD"), url, tags (an array of strings, at most `max_tags`), rating (1 to `max`). Show `question.prompt` as written and `question.placeholder` when present. Prefill from `question.answer` when present.
   5. Each question has Skip. Skipping sends nothing. Saving calls `kit.answerInsight({ token, id: question.id, value })` from the same place the site calls Kit (server action with the sk_ key, or the browser with the pk_ key). On success use the returned `remaining` to show a done state when it reaches 0.
-  6. Catch `KitInsightError` (import it from @startupkit-app/jobs): show `error.message` next to the question whose `id` is `error.id` and keep the typed value; on `error.code === "not_askable"` drop that question; on `"insights_closed"` hide the questions and keep the success message. Let any other error surface the way the site already handles API errors.
+  6. Catch `KitInsightError` (import it from @startupkit-app/jobs): show `error.message` next to the question whose `id` is `error.id` and keep the typed value; on `error.code === "not_askable"` drop that question; on `"insights_closed"` hide the questions and keep the success message; treat any other `KitInsightError` code like a validation error and show `error.message`. Let any other error surface the way the site already handles API errors.
   7. Do not change the apply form or any other API call.
   8. Verify against a Kit server on the matching release with a job whose employer asks questions: apply, answer one question, skip another, and confirm the answer shows on the application in Kit. Then apply on a job with no questions and confirm the success screen is unchanged.
   ````
