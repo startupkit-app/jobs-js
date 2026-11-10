@@ -155,7 +155,7 @@ describe("apply", () => {
 });
 
 describe("answerInsight", () => {
-  it("POSTs the token and the answer envelope to the insight answers path", async () => {
+  it("PATCHes the question's path with the token and the answer in the body", async () => {
     const { calls } = stubFetch(() => jsonResponse(saved));
 
     const result = await serverClient().answerInsight({
@@ -164,14 +164,23 @@ describe("answerInsight", () => {
       value: "Kraków",
     });
 
-    expect(calls[0]!.method).toBe("POST");
-    expect(calls[0]!.url.pathname).toBe("/api/public/v1/insight_answers");
+    expect(calls[0]!.method).toBe("PATCH");
+    expect(calls[0]!.url.pathname).toBe("/api/public/v1/insight_answers/mfd_3k9QpL2x");
+    expect(calls[0]!.url.search).toBe("");
     expect(calls[0]!.headers["Authorization"]).toBe("Bearer sk_test");
-    expect(calls[0]!.rawBody).toBe(
-      '{"token":"insight-token-1","answer":{"id":"mfd_3k9QpL2x","value":"Kraków"}}'
-    );
+    expect(calls[0]!.rawBody).toBe('{"token":"insight-token-1","answer":{"value":"Kraków"}}');
     expect(result).toEqual(saved);
     expect(result.remaining).toBe(2);
+  });
+
+  it("URL-encodes reserved characters in the question id", async () => {
+    const { calls } = stubFetch(() => jsonResponse(saved));
+
+    await client().answerInsight({ token: "insight-token-1", id: "mfd_a/b?c#d e", value: "x" });
+
+    expect(calls[0]!.url.pathname).toBe("/api/public/v1/insight_answers/mfd_a%2Fb%3Fc%23d%20e");
+    expect(calls[0]!.url.search).toBe("");
+    expect(calls[0]!.url.hash).toBe("");
   });
 
   it.each([[true], [42], [["Kotlin", "Spring"]]])(
@@ -181,10 +190,7 @@ describe("answerInsight", () => {
 
       await client().answerInsight({ token: "insight-token-1", id: "mfd_5Yc7Mw3e", value });
 
-      expect(calls[0]!.body).toEqual({
-        token: "insight-token-1",
-        answer: { id: "mfd_5Yc7Mw3e", value },
-      });
+      expect(calls[0]!.body).toEqual({ token: "insight-token-1", answer: { value } });
     }
   );
 

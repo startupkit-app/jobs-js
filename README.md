@@ -207,12 +207,15 @@ Render each question by `type` and send `value` as:
 | `select` | one of `choices` | string |
 | `date` | date picker | `"YYYY-MM-DD"` |
 | `url` | URL field | string; a bare host is saved as `https://…` |
-| `tags` | up to `max_tags`, each up to `max_length` characters | string[] |
+| `tags` | checkboxes for any `choices` plus free entry; up to `max_tags`, each up to `max_length` characters | string[] |
 | `rating` | 1 to `max` | number |
 
 - Every question is optional. A skipped question needs no request; an empty
   value is rejected as `blank`, not saved as a skip.
 - `question.id` (`mfd_…`) is opaque: pass it back as is.
+- The call is `PATCH /api/public/v1/insight_answers/:id`, with the question id
+  URL-encoded in the path and the token in the JSON body, so the token stays
+  out of URLs and access logs.
 - `question.answer` holds the saved answer, absent until the candidate answers.
   Answering again changes it, until `expires_at`.
 - Both `pk_…` and `sk_…` keys work, and there is no Turnstile on this call: the

@@ -29,8 +29,9 @@
     `select`, `date`, `url`, `tags`, `rating`), `prompt`, and per type
     `placeholder`, `choices`, `max`, `max_length`, `max_tags`. `answer` holds the
     saved answer once there is one.
-  - `answerInsight({ token, id, value })` posts to
-    `POST /api/public/v1/insight_answers` and returns
+  - `answerInsight({ token, id, value })` sends
+    `PATCH /api/public/v1/insight_answers/:id` (the question id, URL-encoded)
+    with `{ token, answer: { value } }` as the JSON body, and returns
     `{ answer: { id, value, answered_at }, remaining }`. `value` is a string,
     number, boolean or string array, depending on the type. Both `pk_…` and
     `sk_…` keys work; there is no Turnstile, because the token is the capability.
@@ -80,7 +81,7 @@
   1. Run `npm i @startupkit-app/jobs@^0.7.0` (or this repo's package-manager equivalent) and confirm the lockfile resolves 0.7.0 or later.
   2. Background: `kit.apply(...)` now resolves with an optional `insights: { token, expires_at, questions }`. It is present only when the employer asks questions and they are still open, and never on a 409 already_applied. `insights.token` is a bearer capability: anyone holding it can answer for the candidate until `expires_at`.
   3. Where the apply call resolves (a Server Action if the site applies server-side with an sk_ key; a client handler if it applies from the browser with a pk_ key), return or keep `result.insights` in memory only: component state or action state. Never put the token in a URL, query string, cookie, localStorage or a log line.
-  4. On the success screen, below the existing confirmation, render `insights.questions` in order under a heading such as "A few quick questions" and a line saying they are optional. One input per `question.type`: text/textarea (respect `max_length`), number, boolean (yes/no), select (one of `choices`), date (send "YYYY-MM-DD"), url, tags (an array of strings, at most `max_tags`), rating (1 to `max`). Show `question.prompt` as written and `question.placeholder` when present. Prefill from `question.answer` when present.
+  4. On the success screen, below the existing confirmation, render `insights.questions` in order under a heading such as "A few quick questions" and a line saying they are optional. One input per `question.type`: text/textarea (respect `max_length`), number, boolean (yes/no), select (one of `choices`), date (send "YYYY-MM-DD"), url, tags (an array of strings, at most `max_tags`; offer `choices` as checkboxes when present, plus free entry), rating (1 to `max`). Show `question.prompt` as written and `question.placeholder` when present. Prefill from `question.answer` when present.
   5. Each question has Skip. Skipping sends nothing. Saving calls `kit.answerInsight({ token, id: question.id, value })` from the same place the site calls Kit (server action with the sk_ key, or the browser with the pk_ key). On success use the returned `remaining` to show a done state when it reaches 0.
   6. Catch `KitInsightError` (import it from @startupkit-app/jobs): show `error.message` next to the question whose `id` is `error.id` and keep the typed value; on `error.code === "not_askable"` drop that question; on `"insights_closed"` hide the questions and keep the success message; treat any other `KitInsightError` code like a validation error and show `error.message`. Let any other error surface the way the site already handles API errors.
   7. Do not change the apply form or any other API call.

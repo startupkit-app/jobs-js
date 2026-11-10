@@ -32,9 +32,11 @@ export async function answerInsight(
   { token, id, value }: InsightAnswerInput
 ): Promise<InsightAnswerResult> {
   try {
-    return await http.request<InsightAnswerResult>("POST", "/api/public/v1/insight_answers", {
-      body: { token, answer: { id, value } },
-    });
+    return await http.request<InsightAnswerResult>(
+      "PATCH",
+      `/api/public/v1/insight_answers/${encodeURIComponent(id)}`,
+      { body: { token, answer: { value } } }
+    );
   } catch (error) {
     if (error instanceof KitApiError && error.status === 422) {
       throw new KitInsightError({

@@ -253,7 +253,7 @@ export interface InsightQuestion {
   prompt: string;
   /** Example input for the field. */
   placeholder?: string;
-  /** Options a `select` answer must be one of. */
+  /** Options a `select` answer must be one of; suggested tags for `tags`, which also accept new ones. */
   choices?: string[];
   /** Top of a `rating` scale; the scale starts at 1. */
   max?: number;

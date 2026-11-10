@@ -34,7 +34,7 @@ export function resolveBaseUrl(baseUrl: string | undefined): string {
 /** Internal HTTP transport shared by the resource modules. */
 export interface Http {
   request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PATCH",
     path: string,
     options?: {
       query?: Record<string, string | number | boolean | undefined>;
