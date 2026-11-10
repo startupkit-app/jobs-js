@@ -1,5 +1,11 @@
 import type { Http } from "../client";
-import type { ApplicationInput, ApplicationResult } from "../types";
+import { KitApiError, KitInsightError } from "../errors";
+import type {
+  ApplicationInput,
+  ApplicationResult,
+  InsightAnswerInput,
+  InsightAnswerResult,
+} from "../types";
 
 export function apply(
   http: Http,
@@ -19,4 +25,27 @@ export function apply(
     `/api/public/v1/jobs/${encodeURIComponent(publicToken)}/applications`,
     { body }
   );
+}
+
+export async function answerInsight(
+  http: Http,
+  { token, id, value }: InsightAnswerInput
+): Promise<InsightAnswerResult> {
+  try {
+    return await http.request<InsightAnswerResult>(
+      "PATCH",
+      `/api/public/v1/insight_answers/${encodeURIComponent(id)}`,
+      { body: { token, answer: { value } } }
+    );
+  } catch (error) {
+    if (error instanceof KitApiError && error.status === 422) {
+      throw new KitInsightError({
+        status: error.status,
+        code: error.code,
+        message: error.message,
+        id: error.id,
+      });
+    }
+    throw error;
+  }
 }

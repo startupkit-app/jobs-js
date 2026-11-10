@@ -2,7 +2,7 @@ import { KitApiError, KitNetworkError } from "./errors";
 import { isBrowser } from "./internal/env";
 import { listJobs, allJobs, getJob } from "./resources/jobs";
 import { createUpload, uploadFile } from "./resources/uploads";
-import { apply } from "./resources/applications";
+import { answerInsight, apply } from "./resources/applications";
 import { getTalentPool, joinTalentPool } from "./resources/talent-pool";
 import type {
   ApplicationInput,
@@ -10,6 +10,8 @@ import type {
   ClientOptions,
   ErrorEnvelope,
   GetJobOptions,
+  InsightAnswerInput,
+  InsightAnswerResult,
   Job,
   JobDetail,
   ListJobsParams,
@@ -32,7 +34,7 @@ export function resolveBaseUrl(baseUrl: string | undefined): string {
 /** Internal HTTP transport shared by the resource modules. */
 export interface Http {
   request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PATCH",
     path: string,
     options?: {
       query?: Record<string, string | number | boolean | undefined>;
@@ -67,6 +69,11 @@ export interface KitJobsClient {
     input: ApplicationInput,
     opts?: { turnstileToken?: string }
   ): Promise<ApplicationResult>;
+  /**
+   * Saves the candidate's answer to one optional question from
+   * `ApplicationResult.insights`. Throws `KitInsightError` when it is rejected.
+   */
+  answerInsight(input: InsightAnswerInput): Promise<InsightAnswerResult>;
   /** Fetches the talent-pool intake schema (consent terms, fields, resume rules). */
   getTalentPool(options?: RequestOptions): Promise<TalentPoolForm>;
   /**
@@ -84,6 +91,7 @@ export async function toApiError(response: Response): Promise<KitApiError> {
   let code = "unknown_error";
   let message = `Request failed with status ${response.status}`;
   let fields: Record<string, string[]> | undefined;
+  let id: string | undefined;
 
   try {
     const payload = (await response.json()) as Partial<ErrorEnvelope> | null;
@@ -92,12 +100,13 @@ export async function toApiError(response: Response): Promise<KitApiError> {
       if (typeof error.code === "string") code = error.code;
       if (typeof error.message === "string") message = error.message;
       if (error.fields && typeof error.fields === "object") fields = error.fields;
+      if (typeof error.id === "string") id = error.id;
     }
   } catch {
     // Non-JSON error body (proxy error page, etc.) — keep the fallback.
   }
 
-  return new KitApiError({ status: response.status, code, message, fields });
+  return new KitApiError({ status: response.status, code, message, fields, id });
 }
 
 function createHttp(baseUrl: string, apiKey: string | undefined): Http {
@@ -190,6 +199,7 @@ export function createClient(options: ClientOptions = {}): KitJobsClient {
     createUpload: (meta) => createUpload(http, meta),
     uploadFile: (file, meta) => uploadFile(http, file, meta),
     apply: (publicToken, input, opts) => apply(http, publicToken, input, opts),
+    answerInsight: (input) => answerInsight(http, input),
     getTalentPool: (options) => getTalentPool(http, options),
     joinTalentPool: (input, opts) => joinTalentPool(http, input, opts),
   };

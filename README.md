@@ -157,6 +157,87 @@ Need lower-level control? `createUpload(meta)` registers the blob and
 returns the `direct_upload.url` + `direct_upload.headers` so you can run
 the `PUT` yourself.
 
+## Optional questions after apply
+
+An employer can ask a few optional questions once someone has applied ("Which
+city are you based in?"). When it does and they are still open, the `apply`
+result carries `insights`: a `token`, its `expires_at` deadline, and the
+`questions` in the employer's order. Show them after the "application sent"
+message and save each answer with `answerInsight`. The application is complete
+without them.
+
+```ts
+// app/jobs/[id]/actions.ts — Next.js Server Actions, secret key on the server
+"use server";
+import { createClient, KitInsightError } from "@startupkit-app/jobs";
+import type { ApplicationInput, InsightAnswerValue } from "@startupkit-app/jobs";
+
+const kit = createClient({ secretKey: process.env.STARTUPKIT_SECRET_KEY });
+
+export async function applyAction(jobId: string, input: ApplicationInput) {
+  const result = await kit.apply(jobId, input);
+  return { ok: true, insights: result.insights ?? null };
+}
+
+export async function answerAction(token: string, id: string, value: InsightAnswerValue) {
+  try {
+    const { answer, remaining } = await kit.answerInsight({ token, id, value });
+    return { ok: true, answer, remaining }; // remaining === 0: all answered
+  } catch (error) {
+    if (error instanceof KitInsightError) {
+      // code: "not_a_choice", "insights_closed", …; show message next to the question
+      return { ok: false, code: error.code, message: error.message, id: error.id };
+    }
+    throw error;
+  }
+}
+```
+
+**The token is a bearer capability.** Anyone holding it can answer for the
+candidate until `expires_at`. Keep it on your server or in memory (component or
+action state); never put it in a URL, and do not log it.
+
+Render each question by `type` and send `value` as:
+
+| `type` | Input | `value` |
+| --- | --- | --- |
+| `text`, `textarea` | text field, up to `max_length` characters | string |
+| `number` | number field | number, or a string (a decimal comma is fine) |
+| `boolean` | yes / no | boolean |
+| `select` | one of `choices` | string |
+| `date` | date picker | `"YYYY-MM-DD"` |
+| `url` | URL field | string; a bare host is saved as `https://…` |
+| `tags` | checkboxes for any `choices` plus free entry; up to `max_tags`, each up to `max_length` characters | string[] |
+| `rating` | 1 to `max` | number |
+
+- Every question is optional. A skipped question needs no request; an empty
+  value is rejected as `blank`, not saved as a skip.
+- `question.id` (`mfd_…`) is opaque: pass it back as is.
+- The call is `PATCH /api/public/v1/insight_answers/:id`, with the question id
+  URL-encoded in the path and the token in the JSON body, so the token stays
+  out of URLs and access logs.
+- `question.answer` holds the saved answer, absent until the candidate answers.
+  Answering again changes it, until `expires_at`.
+- Both `pk_…` and `sk_…` keys work, and there is no Turnstile on this call: the
+  token is the capability. Browser code can call `answerInsight` directly with
+  the `pk_…` key; the key's allowed origins apply (403 `origin_not_allowed`). A
+  token only works with a key from the same Kit account.
+- A 409 `already_applied` never carries `insights`.
+
+A rejected answer (422) throws `KitInsightError`, a `KitApiError` whose `code` is
+usually an `InsightErrorCode` and whose `id` names the question:
+
+- `blank`, `too_long`, `not_a_number`, `out_of_range`, `not_a_date`,
+  `not_a_choice`, `not_boolean`, `invalid_url`, `too_many_tags`, `invalid`: fix
+  the value and retry; `error.message` is human-readable.
+- `not_askable`: the employer no longer asks this question. Drop it.
+- `insights_closed`: the token is invalid or expired, or the application has
+  closed. Stop showing the questions.
+- Any other code (one added after this version, or `unknown_error` for a
+  non-JSON body): treat it like `invalid` and show `error.message`.
+
+Answers are rate limited; a 429 is a plain `KitApiError`.
+
 ## Talent pool
 
 People who like the company but see no role that fits can be kept on file
@@ -387,6 +468,8 @@ try {
 Error codes: `invalid_key` (401), `origin_not_allowed` (403), `not_found` (404),
 `already_applied` (409), `validation_failed` / `turnstile_failed` /
 `invalid_content_type` / `file_too_large` (422), `parameter_missing` (400).
+`answerInsight` rejections throw `KitInsightError` (a `KitApiError` subclass);
+see [Optional questions after apply](#optional-questions-after-apply).
 
 ## API
 
@@ -399,6 +482,7 @@ client.getJob(publicToken, options?): Promise<JobDetail>
 client.createUpload(meta): Promise<UploadTicket>
 client.uploadFile(file, meta?): Promise<{ signed_id: string }>
 client.apply(publicToken, input, opts?): Promise<ApplicationResult>
+client.answerInsight({ token, id, value }): Promise<InsightAnswerResult>
 client.getTalentPool(): Promise<TalentPoolForm>
 client.joinTalentPool(input, opts?): Promise<TalentPoolResult>
 
@@ -430,9 +514,10 @@ Stage compensation is separate from the role's recurring `salary` and is omitted
 for unpaid stages.
 
 All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
-`ApplicationResult`, `Page`, `FormField`, `Question`, `StageCompensation`,
-`Locale`, `GetJobOptions`, `KitTracker`, `TrackerOptions`, `TrackEvent`, …) are
-exported.
+`ApplicationResult`, `ApplicationInsights`, `InsightQuestion`,
+`InsightAnswerResult`, `InsightErrorCode`, `Page`, `FormField`, `Question`,
+`StageCompensation`, `Locale`, `GetJobOptions`, `KitTracker`, `TrackerOptions`,
+`TrackEvent`, …) are exported.
 
 ## Examples
 

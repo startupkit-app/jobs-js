@@ -1,6 +1,6 @@
 export { createClient, DEFAULT_BASE_URL } from "./client";
 export type { KitJobsClient } from "./client";
-export { KitApiError, KitNetworkError } from "./errors";
+export { KitApiError, KitInsightError, KitNetworkError } from "./errors";
 export { createTracker } from "./tracker";
 export type {
   KitTracker,
@@ -11,12 +11,19 @@ export type {
 export type {
   ApplicationForm,
   ApplicationInput,
+  ApplicationInsights,
   ApplicationResult,
   ClientOptions,
   ErrorEnvelope,
   FormField,
   FormFieldType,
   GetJobOptions,
+  InsightAnswerInput,
+  InsightAnswerResult,
+  InsightAnswerValue,
+  InsightErrorCode,
+  InsightQuestion,
+  InsightQuestionType,
   Job,
   JobDetail,
   ListJobsParams,
