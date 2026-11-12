@@ -424,3 +424,23 @@ export interface ClientOptions {
   /** API origin. Defaults to `https://app.startupkit.app`; blank counts as unset. */
   baseUrl?: string;
 }
+
+/** Public job-alert signup configuration. A 404 means this employer has no public alerts. */
+export interface JobAlertForm {
+  accepting_subscriptions: boolean;
+  privacy_policy_url: string | null;
+  turnstile: TurnstileConfig;
+  /** Optional talent-pool invitation destination; never an automatic signup. */
+  talent_pool_url: string;
+}
+
+/** Email and optional notification language. Job alerts cover all new public roles. */
+export interface JobAlertSubscriptionInput {
+  email: string;
+  locale?: string;
+}
+
+/** Same response for a new, pending or already-confirmed email address. */
+export interface JobAlertSubscriptionResult {
+  status: "pending_confirmation";
+}

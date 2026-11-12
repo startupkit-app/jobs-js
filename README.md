@@ -525,6 +525,38 @@ All request/response types (`Job`, `JobDetail`, `ApplicationInput`,
 - [`examples/browser-apply.html`](examples/browser-apply.html) — browser form with Turnstile + resume upload
 - [`examples/browser-track.html`](examples/browser-track.html) — job page feeding Kit's analytics (view → started → submitted)
 
+## New-job email alerts
+
+Requires the matching Kit server release. Discover availability before rendering a signup:
+
+```ts
+const form = await kit.getJobAlerts();
+if (form.accepting_subscriptions) {
+  // Call only after the person chooses “Get job alerts”.
+  const result = await kit.createJobAlertSubscription(
+    { email: "jane@example.com", locale: "en" },
+    { turnstileToken: "token-from-widget" } // when form.turnstile.required
+  );
+  // result.status === "pending_confirmation"
+}
+```
+
+`GET /api/public/v1/job_alert_subscriptions` returns `accepting_subscriptions`,
+`privacy_policy_url`, `turnstile` and `talent_pool_url`. A 404 means alerts are unavailable;
+keep the job board usable. Render the privacy link and Turnstile when required.
+
+`POST` to that path sends `{ job_alert_subscription: { email, locale? }, turnstile_token? }`.
+A `202` returns `{ status: "pending_confirmation" }` for both new and existing subscribers;
+never infer whether an email is already subscribed. Say **Check your inbox**. Alerts start
+only after email confirmation, cover new public roles from this employer, and include an
+unsubscribe link. They do not inherit the board's current filters.
+
+Offer the talent pool as a separate, optional next step after submitting. Use
+`getTalentPool()` and `joinTalentPool()` for its own intake and consent; an alerts signup
+never creates a candidate profile or grants talent-pool consent. Keep email addresses in
+request bodies, never URLs, analytics or logs. Validation, Turnstile and rate-limit failures
+use the existing `KitApiError` handling.
+
 ## Releasing (maintainers)
 
 Releases publish to npm via **GitHub Actions + npm Trusted Publishing (OIDC)** —

@@ -1,5 +1,11 @@
 # @startupkit-app/jobs
 
+## 0.8.0
+
+### Minor Changes
+
+- Add `getJobAlerts()` and `createJobAlertSubscription()` with typed job-alert configuration, email/locale input and generic pending-confirmation result. Job alerts require double opt-in and remain separate from talent-pool consent. Requires the matching Kit server release.
+
 ## 0.7.0
 
 ### Minor Changes

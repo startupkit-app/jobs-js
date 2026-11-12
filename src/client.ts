@@ -4,6 +4,7 @@ import { listJobs, allJobs, getJob } from "./resources/jobs";
 import { createUpload, uploadFile } from "./resources/uploads";
 import { answerInsight, apply } from "./resources/applications";
 import { getTalentPool, joinTalentPool } from "./resources/talent-pool";
+import { getJobAlerts, createJobAlertSubscription } from "./resources/job-alerts";
 import type {
   ApplicationInput,
   ApplicationResult,
@@ -13,6 +14,9 @@ import type {
   InsightAnswerInput,
   InsightAnswerResult,
   Job,
+  JobAlertForm,
+  JobAlertSubscriptionInput,
+  JobAlertSubscriptionResult,
   JobDetail,
   ListJobsParams,
   Page,
@@ -74,6 +78,17 @@ export interface KitJobsClient {
    * `ApplicationResult.insights`. Throws `KitInsightError` when it is rejected.
    */
   answerInsight(input: InsightAnswerInput): Promise<InsightAnswerResult>;
+  /** Fetches availability, privacy notice and spam-protection requirements for job alerts. */
+  getJobAlerts(options?: RequestOptions): Promise<JobAlertForm>;
+  /**
+   * Requests job alerts for this employer. The person must confirm by email;
+   * this never creates a candidate or talent-pool entry. Submit only after
+   * the person explicitly asks to receive new-job emails.
+   */
+  createJobAlertSubscription(
+    input: JobAlertSubscriptionInput,
+    opts?: { turnstileToken?: string }
+  ): Promise<JobAlertSubscriptionResult>;
   /** Fetches the talent-pool intake schema (consent terms, fields, resume rules). */
   getTalentPool(options?: RequestOptions): Promise<TalentPoolForm>;
   /**
@@ -200,6 +215,8 @@ export function createClient(options: ClientOptions = {}): KitJobsClient {
     uploadFile: (file, meta) => uploadFile(http, file, meta),
     apply: (publicToken, input, opts) => apply(http, publicToken, input, opts),
     answerInsight: (input) => answerInsight(http, input),
+    getJobAlerts: (options) => getJobAlerts(http, options),
+    createJobAlertSubscription: (input, opts) => createJobAlertSubscription(http, input, opts),
     getTalentPool: (options) => getTalentPool(http, options),
     joinTalentPool: (input, opts) => joinTalentPool(http, input, opts),
   };
